@@ -101,8 +101,8 @@ const Dashboard = () => {
       setIsConnecting(false);
       
       toast({
-        title: "connection timed out",
-        description: "unable to connect, timeout out",
+        title: "unable to connect, timeout out",
+        description: "connection timed out",
         variant: "destructive",
       });
       
