@@ -1,0 +1,175 @@
+
+import { useState, useEffect } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Menu, X, User } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+
+export function Navbar() {
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const { user, signIn, signOut } = useAuth();
+
+  // Track scroll for navbar background change
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  // Close mobile menu when route changes
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const navLinks = [
+    { name: "Home", path: "/" },
+    { name: "Markets", path: "/markets" },
+    { name: "Dashboard", path: "/dashboard" },
+  ];
+
+  const isActive = (path: string) => location.pathname === path;
+
+  return (
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled || isMobileMenuOpen
+          ? "bg-crypto-darker-blue/95 backdrop-blur shadow-md"
+          : "bg-transparent"
+      }`}
+    >
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          {/* Logo */}
+          <Link 
+            to="/" 
+            className="text-2xl font-bold flex items-center transition-all hover:opacity-80"
+          >
+            <span className="gradient-text">example</span>
+            <span className="text-white">crypto</span>
+          </Link>
+          
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-8">
+            {navLinks.map((link) => (
+              <Link
+                key={link.name}
+                to={link.path}
+                className={`transition-all duration-300 hover:text-crypto-light-blue ${
+                  isActive(link.path)
+                    ? "text-crypto-light-blue border-b-2 border-crypto-light-blue"
+                    : "text-white/80"
+                }`}
+              >
+                {link.name}
+              </Link>
+            ))}
+          </nav>
+          
+          {/* Auth button */}
+          <div className="hidden md:flex items-center space-x-4">
+            {user ? (
+              <div className="flex items-center gap-4">
+                {user.photoURL ? (
+                  <div className="relative">
+                    <img
+                      src={user.photoURL}
+                      alt="Profile"
+                      className="w-9 h-9 rounded-full border-2 border-crypto-light-blue/30 hover:border-crypto-light-blue transition-all"
+                    />
+                    <div className="absolute w-3 h-3 bg-crypto-success-green rounded-full bottom-0 right-0 border-2 border-crypto-darker-blue"></div>
+                  </div>
+                ) : (
+                  <User className="w-9 h-9 p-1.5 bg-crypto-medium-blue rounded-full text-white/80" />
+                )}
+                <Button
+                  variant="ghost"
+                  className="text-white/80 hover:text-white hover:bg-crypto-medium-blue"
+                  onClick={signOut}
+                >
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className="bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90 button-glow text-white"
+                onClick={signIn}
+              >
+                Sign In
+              </Button>
+            )}
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-white"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </Button>
+          </div>
+        </div>
+        
+        {/* Mobile Navigation */}
+        {isMobileMenuOpen && (
+          <nav className="pt-6 pb-6 md:hidden animate-fade-in">
+            <div className="flex flex-col space-y-4">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.name}
+                  to={link.path}
+                  className={`py-2 px-4 rounded-md transition-all ${
+                    isActive(link.path)
+                      ? "text-crypto-light-blue bg-crypto-medium-blue/30"
+                      : "text-white/70 hover:bg-crypto-medium-blue/20"
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+              {/* Auth button for mobile */}
+              {user ? (
+                <div className="flex items-center justify-between mt-2 border-t border-white/10 pt-4">
+                  <div className="flex items-center gap-2">
+                    {user.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt="Profile"
+                        className="w-8 h-8 rounded-full"
+                      />
+                    ) : (
+                      <User className="w-8 h-8 p-1.5 bg-crypto-medium-blue rounded-full" />
+                    )}
+                    <span className="text-sm text-white/80 truncate max-w-[100px]">
+                      {user.displayName || user.email || "User"}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    className="text-white/80 hover:text-white text-sm px-3 py-1"
+                    onClick={signOut}
+                  >
+                    Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  className="w-full mt-2 bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90"
+                  onClick={signIn}
+                >
+                  Sign In
+                </Button>
+              )}
+            </div>
+          </nav>
+        )}
+      </div>
+    </header>
+  );
+}
