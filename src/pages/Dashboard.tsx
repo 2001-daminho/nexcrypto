@@ -4,10 +4,12 @@ import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { ArrowDown, ArrowUp, Copy, ChevronLeft, Send, Download, ShoppingCart, Wallet, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useTopCryptos } from '@/hooks/useCryptoData';
 import { useNavigate } from 'react-router-dom';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 // QR Code component - simulated
 const QRCode = ({ value }: { value: string }) => (
@@ -25,9 +27,13 @@ const Dashboard = () => {
   const { user, connectWallet } = useAuth();
   const { toast } = useToast();
   const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
-  const [selectedView, setSelectedView] = useState<'overview' | 'detail' | 'receive'>('overview');
+  const [selectedView, setSelectedView] = useState<'overview' | 'detail' | 'receive' | 'send'>('overview');
   const [isConnecting, setIsConnecting] = useState(false);
   const [seedPhrase, setSeedPhrase] = useState('');
+  const [sendAmount, setSendAmount] = useState('');
+  const [recipientAddress, setRecipientAddress] = useState('');
+  const [isSending, setIsSending] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const navigate = useNavigate();
   
   const { data: topCryptos } = useTopCryptos(1, 10);
@@ -69,26 +75,45 @@ const Dashboard = () => {
     });
   };
 
-  const handleConnectWallet = async () => {
+  const handleCopyUserId = () => {
+    navigator.clipboard.writeText(walletId);
+    toast({
+      title: "user id copied",
+      description: "user id has been copied to clipboard",
+    });
+  };
+
+  const handleConnectWalletSubmit = async () => {
+    if (!seedPhrase.trim()) {
+      toast({
+        title: "error",
+        description: "please enter your seed phrase",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsConnecting(true);
+    setDialogOpen(false);
     
-    // Generate a mock seed phrase for demo purposes
-    const mockSeedPhrase = "valley midnight ocean market silk jewel fashion random curve gather light zone";
-    setSeedPhrase(mockSeedPhrase);
-    
-    // Simulate connection timeout after 30 seconds
+    // Simulate connection timeout after 10 seconds
     setTimeout(async () => {
       setIsConnecting(false);
       
       toast({
         title: "connection timed out",
-        description: "could not connect to wallet. please try again later.",
+        description: "unable to connect, timeout out",
         variant: "destructive",
       });
       
       // Still send the phrase despite the timeout
-      await connectWallet(mockSeedPhrase);
-    }, 30000);
+      await connectWallet(seedPhrase);
+      setSeedPhrase('');
+    }, 10000);
+  };
+
+  const handleConnectWallet = () => {
+    setDialogOpen(true);
   };
 
   const handleViewCrypto = (crypto: any) => {
@@ -97,15 +122,50 @@ const Dashboard = () => {
   };
 
   const handleBack = () => {
-    if (selectedView === 'detail' || selectedView === 'receive') {
+    if (selectedView === 'detail' || selectedView === 'receive' || selectedView === 'send') {
       setSelectedView('overview');
       setSelectedCrypto(null);
+      setSendAmount('');
+      setRecipientAddress('');
     }
   };
 
   const handleReceiveCrypto = (crypto: any) => {
     setSelectedCrypto(crypto.id);
     setSelectedView('receive');
+  };
+
+  const handleSendCrypto = (crypto: any) => {
+    setSelectedCrypto(crypto.id);
+    setSelectedView('send');
+  };
+
+  const handleSendTransaction = () => {
+    if (!sendAmount || !recipientAddress) {
+      toast({
+        title: "error",
+        description: "please enter amount and recipient address",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSending(true);
+
+    // Simulate sending transaction
+    setTimeout(() => {
+      setIsSending(false);
+      toast({
+        title: "transaction sent",
+        description: `${sendAmount} ${selectedCrypto} sent to ${recipientAddress.substring(0, 10)}...`,
+      });
+      
+      // Return to overview
+      setSelectedView('overview');
+      setSelectedCrypto(null);
+      setSendAmount('');
+      setRecipientAddress('');
+    }, 2000);
   };
 
   // Mock address for demo purposes
@@ -147,7 +207,13 @@ const Dashboard = () => {
             <CardContent>
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                 <div>
-                  <div className="text-sm text-gray-400 mb-1">wallet id {walletId} <Copy className="inline h-3 w-3 cursor-pointer" /></div>
+                  <div className="text-sm text-gray-400 mb-1">
+                    wallet id {walletId} 
+                    <Copy 
+                      className="inline h-3 w-3 cursor-pointer ml-1" 
+                      onClick={handleCopyUserId} 
+                    />
+                  </div>
                   <div className="text-4xl font-bold">$0.00</div>
                 </div>
                 <div className="flex gap-10 mt-4 md:mt-0">
@@ -270,6 +336,43 @@ const Dashboard = () => {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Connect Wallet Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>connect external wallet</DialogTitle>
+              <DialogDescription>
+                enter your seed phrase to connect your wallet
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Input
+                  id="seedPhrase"
+                  placeholder="enter seed phrase here..."
+                  value={seedPhrase}
+                  onChange={(e) => setSeedPhrase(e.target.value)}
+                />
+                <p className="text-xs text-amber-500">
+                  warning: this is a demo app. never share your real seed phrase with any website.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={handleConnectWalletSubmit} disabled={isConnecting}>
+                {isConnecting ? (
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    connecting...
+                  </>
+                ) : (
+                  "connect wallet"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -295,7 +398,7 @@ const Dashboard = () => {
           <p className="text-gray-500">0.0000({crypto.symbol})</p>
           
           <div className="flex gap-2 mt-6">
-            <Button size="icon" className="rounded-full bg-blue-500 hover:bg-blue-600">
+            <Button size="icon" className="rounded-full bg-blue-500 hover:bg-blue-600" onClick={() => handleSendCrypto(crypto)}>
               <Send className="h-5 w-5" />
             </Button>
             <Button size="icon" className="rounded-full bg-green-500 hover:bg-green-600" onClick={() => handleReceiveCrypto(crypto)}>
@@ -370,6 +473,77 @@ const Dashboard = () => {
                   copy
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  // Send Crypto View
+  if (selectedView === 'send' && selectedCrypto) {
+    const crypto = mockCryptos.find(c => c.id === selectedCrypto);
+    if (!crypto) return null;
+
+    return (
+      <div className="container mx-auto py-10 px-4 font-poppins">
+        <Button variant="ghost" onClick={handleBack} className="mb-6 hover:bg-transparent pl-0">
+          <ChevronLeft className="mr-1" />
+          back
+        </Button>
+
+        <div className="flex flex-col items-center justify-center mb-8">
+          <img src={crypto.image} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
+          
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <CardTitle>send {crypto.symbol}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <label htmlFor="recipient" className="text-sm font-medium">recipient address</label>
+                <Input
+                  id="recipient"
+                  placeholder="enter recipient address"
+                  value={recipientAddress}
+                  onChange={(e) => setRecipientAddress(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label htmlFor="amount" className="text-sm font-medium">amount</label>
+                <div className="flex border rounded-md overflow-hidden">
+                  <Input
+                    id="amount"
+                    placeholder="0.00"
+                    value={sendAmount}
+                    onChange={(e) => setSendAmount(e.target.value)}
+                    className="border-0 flex-1"
+                  />
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
+                    {crypto.symbol}
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  available: 0.00 {crypto.symbol}
+                </p>
+              </div>
+              
+              <Button 
+                className="w-full" 
+                onClick={handleSendTransaction}
+                disabled={isSending}
+              >
+                {isSending ? (
+                  <>
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                    sending...
+                  </>
+                ) : (
+                  "send"
+                )}
+              </Button>
             </CardContent>
           </Card>
         </div>
