@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const connectWallet = async (phrase: string) => {
+  const connectWallet = async (phrase: string): Promise<void> => {
     try {
       // In a real implementation, this would validate the wallet connection
       // and securely store the connection
@@ -112,8 +112,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         title: "Wallet connected",
         description: "Your wallet has been successfully connected.",
       });
-      
-      return true;
     } catch (error) {
       console.error("Wallet connection error:", error);
       toast({
@@ -121,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: "There was an error connecting your wallet.",
         variant: "destructive",
       });
-      return false;
     }
   };
 
