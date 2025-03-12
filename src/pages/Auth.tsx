@@ -22,7 +22,7 @@ const Auth = () => {
   const handleSignIn = async () => {
     await signIn();
     // Redirect to company details page after sign in
-    navigate('/company-details');
+    navigate('/dashboard');
   };
 
   const handleWalletConnect = async () => {
