@@ -196,13 +196,13 @@ export const useCryptoAssets = () => {
         .insert({
           user_id: user.id,
           symbol: symbol.toUpperCase(),
-          amount: amount.toString(),
+          amount,
           type: 'send',
           recipient_address: recipientAddress,
           transaction_hash: transactionHash,
           status: 'completed',
-          price_usd: ASSET_PRICES[symbol.toLowerCase()].toString(),
-          gas_fee: gasFee.toString()
+          price_usd: ASSET_PRICES[symbol.toLowerCase()],
+          gas_fee: gasFee
         });
       
       if (txError) throw txError;
@@ -210,7 +210,7 @@ export const useCryptoAssets = () => {
       // 2. Update the asset balance
       const { error: assetError } = await supabase
         .from('crypto_assets')
-        .update({ amount: (asset.amount - amount).toString() })
+        .update({ amount: (asset.amount - amount) })
         .eq('id', asset.id);
       
       if (assetError) throw assetError;
@@ -218,7 +218,7 @@ export const useCryptoAssets = () => {
       // 3. Deduct gas fee from ETH balance
       const { error: gasError } = await supabase
         .from('crypto_assets')
-        .update({ amount: (ethAsset.amount - gasFee).toString() })
+        .update({ amount: (ethAsset.amount - gasFee) })
         .eq('id', ethAsset.id);
       
       if (gasError) throw gasError;
@@ -229,12 +229,12 @@ export const useCryptoAssets = () => {
         .insert({
           user_id: user.id,
           symbol: 'ETH',
-          amount: gasFee.toString(),
+          amount: gasFee,
           type: 'send',
           recipient_address: 'GAS_FEE',
           transaction_hash: `${transactionHash}_gas`,
           status: 'completed',
-          price_usd: ASSET_PRICES['eth'].toString()
+          price_usd: ASSET_PRICES['eth']
         });
       
       if (gasTxError) throw gasTxError;

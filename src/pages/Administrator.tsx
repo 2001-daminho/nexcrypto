@@ -59,7 +59,7 @@ const Administrator = () => {
     const fetchUsers = async () => {
       try {
         const { data, error } = await supabase
-          .from('auth.users')
+          .from('admin_users')
           .select('id, email, created_at')
           .order('created_at', { ascending: false });
           
