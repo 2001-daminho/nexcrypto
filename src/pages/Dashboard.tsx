@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTopCryptos } from '@/hooks/useCryptoData';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { supabase } from '@/integrations/supabase/client';
 
 // QR Code component - simulated
 const QRCode = ({ value }: { value: string }) => (
@@ -34,6 +35,10 @@ const Dashboard = () => {
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [userAssets, setUserAssets] = useState<any[]>([]);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   
   const { data: topCryptos } = useTopCryptos(1, 10);
@@ -42,57 +47,68 @@ const Dashboard = () => {
     // Redirect if not logged in
     if (!user) {
       navigate('/auth');
+      return;
     }
+    
+    // Load user's crypto assets
+    fetchUserData();
   }, [user, navigate]);
 
-  const walletId = "3535688863";
-  const mockCryptos = [
-    { 
-      id: "usdt", 
-      name: "usdt", 
-      symbol: "eth", 
-      price: 0.99, 
-      change: +0.05, 
-      amount: 0.000,
-      image: "https://cryptologos.cc/logos/tether-usdt-logo.png"
-    },
-    { 
-      id: "bitcoin", 
-      name: "bitcoin", 
-      symbol: "btc", 
-      price: 82958.00, 
-      change: -3.87, 
-      amount: 0.000, 
-      image: "https://cryptologos.cc/logos/bitcoin-btc-logo.png"
-    },
-    { 
-      id: "ethereum", 
-      name: "ethereum", 
-      symbol: "eth", 
-      price: 1943, 
-      change: -3.2, 
-      amount: 0.000,
-      image: "https://cryptologos.cc/logos/ethereum-eth-logo.png"
-    },
-    { 
-      id: "solana", 
-      name: "Solana", 
-      symbol: "sol", 
-      price: 126.20, 
-      change: +6.24, 
-      amount: 0.000,
-      image: "https://cryptologos.cc/logos/solana-sol-logo.png"
-    },
-    { 
-      id: "litecoin", 
-      name: "Litecoin", 
-      symbol: "ltc", 
-      price: 91.75, 
-      change: +3.72, 
-      amount: 0.000,
-      image: "https://cryptologos.cc/logos/litecoin-ltc-logo.png"
+  const fetchUserData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch assets
+      const { data: assets, error: assetsError } = await supabase
+        .from('crypto_assets')
+        .select('*')
+        .order('name');
+      
+      if (assetsError) throw assetsError;
+      
+      // Calculate total balance (in a real app, you'd use real-time prices)
+      const assetsWithValue = assets?.map(asset => ({
+        ...asset,
+        price: getCryptoPrice(asset.symbol),
+        value: asset.amount * getCryptoPrice(asset.symbol)
+      })) || [];
+      
+      const total = assetsWithValue.reduce((sum, asset) => sum + asset.value, 0);
+      
+      setUserAssets(assetsWithValue);
+      setTotalBalance(total);
+      
+      // Fetch recent transactions
+      const { data: txs, error: txsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (txsError) throw txsError;
+      setRecentTransactions(txs || []);
+      
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
     }
-  ];
+  };
+  
+  // Helper to get crypto price (mock function - in a real app use an API)
+  const getCryptoPrice = (symbol: string) => {
+    const prices: {[key: string]: number} = {
+      btc: 82958.00,
+      eth: 1943.00,
+      sol: 126.20,
+      usdt: 0.99,
+      ltc: 91.75,
+      // Add other crypto prices here
+    };
+    return prices[symbol.toLowerCase()] || 0;
+  };
+
+  const walletId = user?.id.substring(0, 10) || "3535688863";
 
   const handleCopyAddress = (address: string) => {
     navigator.clipboard.writeText(address);
@@ -144,7 +160,7 @@ const Dashboard = () => {
   };
 
   const handleViewCrypto = (crypto: any) => {
-    setSelectedCrypto(crypto.id);
+    setSelectedCrypto(crypto.symbol);
     setSelectedView('detail');
   };
 
@@ -158,17 +174,17 @@ const Dashboard = () => {
   };
 
   const handleReceiveCrypto = (crypto: any) => {
-    setSelectedCrypto(crypto.id);
+    setSelectedCrypto(crypto.symbol);
     setSelectedView('receive');
   };
 
   const handleSendCrypto = (crypto: any) => {
-    setSelectedCrypto(crypto.id);
+    setSelectedCrypto(crypto.symbol);
     setSelectedView('send');
   };
 
-  const handleSendTransaction = () => {
-    if (!sendAmount || !recipientAddress) {
+  const handleSendTransaction = async () => {
+    if (!sendAmount || !recipientAddress || !selectedCrypto) {
       toast({
         title: "error",
         description: "please enter amount and recipient address",
@@ -176,32 +192,92 @@ const Dashboard = () => {
       });
       return;
     }
+    
+    const amount = parseFloat(sendAmount);
+    const selectedAsset = userAssets.find(a => a.symbol === selectedCrypto);
+    
+    if (!selectedAsset || selectedAsset.amount < amount) {
+      toast({
+        title: "Insufficient balance",
+        description: `You don't have enough ${selectedCrypto} to send.`,
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsSending(true);
 
-    // Simulate sending transaction
-    setTimeout(() => {
-      setIsSending(false);
+    try {
+      // 1. Record the transaction
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user!.id,
+          type: 'send',
+          symbol: selectedCrypto,
+          amount: amount,
+          recipient_address: recipientAddress,
+          price_usd: getCryptoPrice(selectedCrypto)
+        });
+        
+      if (txError) throw txError;
+      
+      // 2. Update the user's balance
+      const { error: updateError } = await supabase
+        .from('crypto_assets')
+        .update({ 
+          amount: selectedAsset.amount - amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedAsset.id);
+        
+      if (updateError) throw updateError;
+      
+      // Success message
       toast({
-        title: "transaction sent",
+        title: "Transaction sent",
         description: `${sendAmount} ${selectedCrypto} sent to ${recipientAddress.substring(0, 10)}...`,
       });
+      
+      // Refresh data
+      fetchUserData();
       
       // Return to overview
       setSelectedView('overview');
       setSelectedCrypto(null);
       setSendAmount('');
       setRecipientAddress('');
-    }, 2000);
+      
+    } catch (error: any) {
+      console.error("Send transaction error:", error);
+      toast({
+        title: "Transaction failed",
+        description: error.message || "An error occurred while sending your transaction.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   // Mock address for demo purposes
   const getWalletAddress = (crypto: string) => {
-    return "bc1qsauc64vz7jdpekvm4nyr7xmIys5funsIlecjqv";
+    return `${crypto.toLowerCase()}1${user?.id.substring(0, 24)}`;
   };
 
   if (!user) {
     return null; // We'll redirect in the useEffect
+  }
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-20 flex justify-center items-center">
+        <div className="text-center">
+          <Loader className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Loading your dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   // Overview - Main Dashboard
@@ -241,7 +317,7 @@ const Dashboard = () => {
                       onClick={handleCopyUserId} 
                     />
                   </div>
-                  <div className="text-4xl font-bold">$0.00</div>
+                  <div className="text-4xl font-bold">${totalBalance.toFixed(2)}</div>
                 </div>
                 <div className="flex gap-10 mt-4 md:mt-0">
                   <div>
@@ -264,30 +340,60 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        <h2 className="text-2xl font-bold mb-4">latest activities</h2>
+        <h2 className="text-2xl font-bold mb-4">your assets</h2>
         <div className="space-y-4">
-          {mockCryptos.map((crypto) => (
+          {userAssets.map((crypto) => (
             <Card key={crypto.id} className="hover:border-crypto-light-blue/20 transition-all cursor-pointer" onClick={() => handleViewCrypto(crypto)}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-4">
-                    <img src={crypto.image} alt={crypto.name} className="w-12 h-12 rounded-full" />
+                    <img src={crypto.image_url} alt={crypto.name} className="w-12 h-12 rounded-full" />
                     <div>
                       <div className="font-bold">${crypto.price.toLocaleString()}</div>
-                      <div className={`text-sm ${crypto.change < 0 ? 'text-crypto-error-red' : 'text-crypto-success-green'}`}>
-                        {crypto.change}%
-                      </div>
+                      <div className="text-sm text-white/70">{crypto.name}</div>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="text-lg font-medium">{crypto.amount} {crypto.symbol}</div>
-                    <div className="text-sm text-gray-400">$0.00</div>
+                    <div className="text-sm text-gray-400">${crypto.value.toFixed(2)}</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+
+        {recentTransactions.length > 0 && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold mb-4">recent transactions</h2>
+            <Card>
+              <CardContent className="p-4">
+                <div className="space-y-4">
+                  {recentTransactions.map((tx) => (
+                    <div key={tx.id} className="flex justify-between items-center border-b pb-2">
+                      <div>
+                        <div className="font-medium capitalize">{tx.type} {tx.symbol}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(tx.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-medium ${tx.type === 'buy' || tx.type === 'receive' ? 'text-crypto-success-green' : 'text-crypto-error-red'}`}>
+                          {tx.type === 'buy' || tx.type === 'receive' ? '+' : '-'}{tx.amount} {tx.symbol}
+                        </div>
+                        {tx.price_usd && (
+                          <div className="text-sm text-gray-500">
+                            ${(tx.amount * tx.price_usd).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Connect Wallet Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -331,7 +437,7 @@ const Dashboard = () => {
 
   // Crypto Detail View
   if (selectedView === 'detail' && selectedCrypto) {
-    const crypto = mockCryptos.find(c => c.id === selectedCrypto);
+    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
     return (
@@ -343,11 +449,12 @@ const Dashboard = () => {
 
         <div className="flex flex-col items-center justify-center mb-8">
           <div className="text-right text-crypto-error-red font-medium mb-4 w-full">
-            {crypto.change}%
+            {/* We'll replace this with real price change data when available */}
+            0.00%
           </div>
-          <img src={crypto.image} alt={crypto.name} className="w-24 h-24 mb-4" />
-          <h1 className="text-3xl font-bold mb-1">$0.00</h1>
-          <p className="text-gray-500">0.0000({crypto.symbol})</p>
+          <img src={crypto.image_url} alt={crypto.name} className="w-24 h-24 mb-4" />
+          <h1 className="text-3xl font-bold mb-1">${crypto.value.toFixed(2)}</h1>
+          <p className="text-gray-500">{crypto.amount} ({crypto.symbol})</p>
           
           <div className="flex gap-2 mt-6">
             <Button size="icon" className="rounded-full bg-blue-500 hover:bg-blue-600" onClick={() => handleSendCrypto(crypto)}>
@@ -359,18 +466,39 @@ const Dashboard = () => {
           </div>
         </div>
         
-        <h2 className="text-2xl font-bold mb-4">latest activities</h2>
+        <h2 className="text-2xl font-bold mb-4">transactions</h2>
         <Card>
           <CardContent className="p-4">
-            <div className="text-center py-10">
-              <p className="text-gray-500">no record found!</p>
-            </div>
-            <div className="bg-gray-100 dark:bg-gray-800 rounded-md p-4 mt-4">
-              <div className="flex justify-between font-medium">
-                <span>transactions</span>
-                <span>amount</span>
+            {recentTransactions.filter(tx => tx.symbol === selectedCrypto).length > 0 ? (
+              <div className="space-y-4">
+                {recentTransactions
+                  .filter(tx => tx.symbol === selectedCrypto)
+                  .map((tx) => (
+                    <div key={tx.id} className="flex justify-between items-center border-b pb-2">
+                      <div>
+                        <div className="font-medium capitalize">{tx.type}</div>
+                        <div className="text-sm text-gray-500">
+                          {new Date(tx.created_at).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`font-medium ${tx.type === 'buy' || tx.type === 'receive' ? 'text-crypto-success-green' : 'text-crypto-error-red'}`}>
+                          {tx.type === 'buy' || tx.type === 'receive' ? '+' : '-'}{tx.amount} {tx.symbol}
+                        </div>
+                        {tx.price_usd && (
+                          <div className="text-sm text-gray-500">
+                            ${(tx.amount * tx.price_usd).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                ))}
               </div>
-            </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-gray-500">no transactions found!</p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -379,10 +507,10 @@ const Dashboard = () => {
 
   // Receive Crypto View
   if (selectedView === 'receive' && selectedCrypto) {
-    const crypto = mockCryptos.find(c => c.id === selectedCrypto);
+    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
     
-    const address = getWalletAddress(crypto.id);
+    const address = getWalletAddress(crypto.symbol);
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
@@ -392,7 +520,7 @@ const Dashboard = () => {
         </Button>
 
         <div className="flex flex-col items-center justify-center mb-8">
-          <img src={crypto.image} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <img src={crypto.image_url} alt={crypto.name} className="w-20 h-20 mb-4" />
           <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
           
           <Card className="w-full max-w-2xl">
@@ -428,7 +556,7 @@ const Dashboard = () => {
 
   // Send Crypto View
   if (selectedView === 'send' && selectedCrypto) {
-    const crypto = mockCryptos.find(c => c.id === selectedCrypto);
+    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
     return (
@@ -439,7 +567,7 @@ const Dashboard = () => {
         </Button>
 
         <div className="flex flex-col items-center justify-center mb-8">
-          <img src={crypto.image} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <img src={crypto.image_url} alt={crypto.name} className="w-20 h-20 mb-4" />
           <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
           
           <Card className="w-full max-w-2xl">
@@ -472,7 +600,7 @@ const Dashboard = () => {
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  available: 0.00 {crypto.symbol}
+                  available: {crypto.amount} {crypto.symbol}
                 </p>
               </div>
               

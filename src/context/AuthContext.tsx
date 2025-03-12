@@ -1,18 +1,13 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
-
-// Define the user type
-interface User {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-  photoURL: string | null;
-}
+import { supabase } from "@/integrations/supabase/client";
+import { Session, User } from "@supabase/supabase-js";
 
 // Define the context type
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   loading: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -22,6 +17,7 @@ interface AuthContextType {
 // Create context with default values
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  session: null,
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
@@ -31,39 +27,49 @@ const AuthContext = createContext<AuthContextType>({
 // Custom hook to use the auth context
 export const useAuth = () => useContext(AuthContext);
 
-// Mock auth provider (to be replaced with Firebase)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    // Check for user in localStorage (simulating persistence)
-    const storedUser = localStorage.getItem("examplecrypto_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    // Initialize session from supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async () => {
-    setLoading(true);
     try {
-      // Mock login for demo
-      // In the real implementation, this would use Firebase Authentication
-      const mockUser: User = {
-        uid: "user123",
-        email: "demo@example.com",
-        displayName: "Demo User",
-        photoURL: "https://api.dicebear.com/7.x/avataaars/svg?seed=demo",
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem("examplecrypto_user", JSON.stringify(mockUser));
+      setLoading(true);
+      // In a real app, you would use Supabase auth providers
+      // For this demo, we'll use a simplified OAuth flow with Google
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (error) throw error;
       
       toast({
-        title: "Signed in successfully",
-        description: "Welcome to examplecrypto!",
+        title: "Sign in initiated",
+        description: "You'll be redirected to the login provider.",
       });
     } catch (error) {
       console.error("Sign in error:", error);
@@ -79,9 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
-      // Clear the user from state and localStorage
-      setUser(null);
-      localStorage.removeItem("examplecrypto_user");
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       
       toast({
         title: "Signed out",
@@ -98,19 +103,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const connectWallet = async (phrase: string): Promise<void> => {
-    try {
-      // In a real implementation, this would validate the wallet connection
-      // and securely store the connection
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in before connecting a wallet.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      // IMPORTANT: In a real app, NEVER send seed phrases over email or store them!
-      // This is just for the demo as requested
+    try {
+      // In a real implementation, this would validate and connect the wallet
+      // For demo purposes, we're just recording this in a transaction
+      const { error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'receive',
+          symbol: 'btc',
+          amount: 0,
+          status: 'pending',
+          transaction_hash: `wallet-connect-${Date.now()}`
+        });
       
-      // Simulating sending an email
-      console.log("Wallet phrase to be sent to example@gmail.com:", phrase);
+      if (error) throw error;
       
       toast({
-        title: "Wallet connected",
-        description: "Your wallet has been successfully connected.",
+        title: "Wallet connection initiated",
+        description: "Your wallet connection request has been received.",
       });
     } catch (error) {
       console.error("Wallet connection error:", error);
@@ -123,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, connectWallet }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signOut, connectWallet }}>
       {children}
     </AuthContext.Provider>
   );

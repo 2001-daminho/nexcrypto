@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, CreditCard } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function Navbar() {
@@ -29,6 +29,7 @@ export function Navbar() {
     { name: "Home", path: "/" },
     { name: "Markets", path: "/markets" },
     { name: "Dashboard", path: "/dashboard" },
+    { name: "Transaction", path: "/transaction" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -73,10 +74,10 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center gap-4">
-                {user.photoURL ? (
+                {user.user_metadata?.avatar_url ? (
                   <div className="relative">
                     <img
-                      src={user.photoURL}
+                      src={user.user_metadata.avatar_url}
                       alt="Profile"
                       className="w-9 h-9 rounded-full border-2 border-crypto-light-blue/30 hover:border-crypto-light-blue transition-all"
                     />
@@ -91,6 +92,14 @@ export function Navbar() {
                   onClick={signOut}
                 >
                   Sign Out
+                </Button>
+                <Button
+                  variant="outline"
+                  className="bg-crypto-medium-blue border-crypto-light-blue/30 text-white hover:bg-crypto-light-blue/10"
+                  onClick={() => window.location.href = "/transaction"}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Transaction
                 </Button>
               </div>
             ) : (
@@ -137,9 +146,9 @@ export function Navbar() {
               {user ? (
                 <div className="flex items-center justify-between mt-2 border-t border-white/10 pt-4">
                   <div className="flex items-center gap-2">
-                    {user.photoURL ? (
+                    {user.user_metadata?.avatar_url ? (
                       <img
-                        src={user.photoURL}
+                        src={user.user_metadata.avatar_url}
                         alt="Profile"
                         className="w-8 h-8 rounded-full"
                       />
@@ -147,7 +156,7 @@ export function Navbar() {
                       <User className="w-8 h-8 p-1.5 bg-crypto-medium-blue rounded-full" />
                     )}
                     <span className="text-sm text-white/80 truncate max-w-[100px]">
-                      {user.displayName || user.email || "User"}
+                      {user.email || "User"}
                     </span>
                   </div>
                   <Button 

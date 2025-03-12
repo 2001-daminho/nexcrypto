@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader } from 'lucide-react';
 
 const Transaction = () => {
   const { user } = useAuth();
@@ -17,8 +19,48 @@ const Transaction = () => {
   const [transactionType, setTransactionType] = useState('buy');
   const [amount, setAmount] = useState('');
   const [crypto, setCrypto] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [userAssets, setUserAssets] = useState<any[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   
-  const handleTransaction = () => {
+  // Fetch user assets and transactions
+  useEffect(() => {
+    if (user) {
+      fetchUserAssets();
+      fetchRecentTransactions();
+    }
+  }, [user]);
+  
+  const fetchUserAssets = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('crypto_assets')
+        .select('*')
+        .order('name');
+        
+      if (error) throw error;
+      setUserAssets(data || []);
+    } catch (error) {
+      console.error('Error fetching assets:', error);
+    }
+  };
+  
+  const fetchRecentTransactions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+        
+      if (error) throw error;
+      setRecentTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+  };
+  
+  const handleTransaction = async () => {
     if (!amount || !crypto) {
       toast({
         title: "Missing information",
@@ -28,15 +70,88 @@ const Transaction = () => {
       return;
     }
     
-    // Simulate transaction
-    toast({
-      title: "Transaction submitted",
-      description: `Your ${transactionType} order for ${amount} ${crypto} has been simulated.`,
-    });
+    setIsLoading(true);
     
-    // Clear form
-    setAmount('');
-    setCrypto('');
+    try {
+      // 1. Insert the transaction
+      const numericAmount = parseFloat(amount);
+      const pricePerUnit = 100; // In a real app, get real-time price
+      
+      const { error: transactionError, data: newTransaction } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user!.id,
+          type: transactionType,
+          symbol: crypto,
+          amount: numericAmount,
+          price_usd: pricePerUnit,
+        })
+        .select()
+        .single();
+      
+      if (transactionError) throw transactionError;
+      
+      // 2. Update the user's balance
+      // First check if they already have this asset
+      const { data: existingAsset } = await supabase
+        .from('crypto_assets')
+        .select('*')
+        .eq('user_id', user!.id)
+        .eq('symbol', crypto)
+        .single();
+      
+      const assetAmount = transactionType === 'buy' ? numericAmount : -numericAmount;
+      
+      if (existingAsset) {
+        // Update existing asset
+        const { error: updateError } = await supabase
+          .from('crypto_assets')
+          .update({ 
+            amount: existingAsset.amount + assetAmount,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingAsset.id);
+          
+        if (updateError) throw updateError;
+      } else {
+        // Create new asset record
+        const { error: insertError } = await supabase
+          .from('crypto_assets')
+          .insert({
+            user_id: user!.id,
+            symbol: crypto,
+            name: crypto.charAt(0).toUpperCase() + crypto.slice(1),
+            amount: assetAmount,
+            image_url: `https://cryptologos.cc/logos/${crypto}-${crypto}-logo.png`
+          });
+          
+        if (insertError) throw insertError;
+      }
+      
+      // Success message
+      toast({
+        title: "Transaction successful",
+        description: `Your ${transactionType} order for ${amount} ${crypto} has been processed.`,
+      });
+      
+      // Refresh data
+      fetchUserAssets();
+      fetchRecentTransactions();
+      
+      // Clear form
+      setAmount('');
+      setCrypto('');
+      
+    } catch (error: any) {
+      console.error('Transaction error:', error);
+      toast({
+        title: "Transaction failed",
+        description: error.message || "An error occurred while processing your transaction.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   if (!user) {
@@ -135,8 +250,21 @@ const Transaction = () => {
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="w-full" onClick={handleTransaction}>
-            {transactionType === 'buy' ? 'Buy' : 'Sell'} {crypto && crypto.charAt(0).toUpperCase() + crypto.slice(1)}
+          <Button 
+            className="w-full" 
+            onClick={handleTransaction}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {transactionType === 'buy' ? 'Buy' : 'Sell'} {crypto && crypto.charAt(0).toUpperCase() + crypto.slice(1)}
+              </>
+            )}
           </Button>
         </CardFooter>
       </Card>
@@ -147,9 +275,34 @@ const Transaction = () => {
             <CardTitle>Recent Transactions</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-center text-sm text-gray-500 py-6">
-              No recent transactions
-            </p>
+            {recentTransactions.length > 0 ? (
+              <div className="space-y-4">
+                {recentTransactions.map((tx) => (
+                  <div key={tx.id} className="flex justify-between items-center border-b pb-2">
+                    <div>
+                      <div className="font-medium capitalize">{tx.type} {tx.symbol}</div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(tx.created_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`font-medium ${tx.type === 'buy' || tx.type === 'receive' ? 'text-crypto-success-green' : 'text-crypto-error-red'}`}>
+                        {tx.type === 'buy' || tx.type === 'receive' ? '+' : '-'}{tx.amount} {tx.symbol}
+                      </div>
+                      {tx.price_usd && (
+                        <div className="text-sm text-gray-500">
+                          ${(tx.amount * tx.price_usd).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-center text-sm text-gray-500 py-6">
+                No recent transactions
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
