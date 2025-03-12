@@ -1,503 +1,386 @@
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { 
-  Table, 
-  TableBody, 
-  TableCaption, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle 
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader, Search, Edit, Trash2, Plus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Pencil, Trash, X, Check, Search, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-// Admin page component
+type User = {
+  id: string;
+  email: string;
+  created_at: string;
+};
+
+type Asset = {
+  id: string;
+  user_id: string;
+  symbol: string;
+  name: string;
+  amount: number;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const Administrator = () => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
-  const [users, setUsers] = useState<any[]>([]);
-  const [assets, setAssets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userAssets, setUserAssets] = useState<Asset[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [isEditing, setIsEditing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const [selectedAsset, setSelectedAsset] = useState<any>(null);
-  const [newAmount, setNewAmount] = useState('');
+  const [editAssetId, setEditAssetId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState('');
 
-  // Fetch users and their assets
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      
-      // Get all users with profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-      
-      if (profilesError) throw profilesError;
-      
-      // Get authentication users (admins only have access to this)
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) {
-        // If this fails due to lacking admin rights, show warning but proceed with profiles
-        console.warn("Unable to fetch auth users - admin access required:", authError);
-        setUsers(profiles || []);
-      } else {
-        // Merge auth users with profiles
-        const mergedUsers = profiles?.map(profile => {
-          const authUser = authUsers.users.find(u => u.id === profile.id);
-          return {
-            ...profile,
-            email: authUser?.email || 'Unknown',
-            lastSignIn: authUser?.last_sign_in_at || null
-          };
-        }) || [];
-        
-        setUsers(mergedUsers);
-      }
-      
-      // Get all crypto assets
-      const { data: cryptoAssets, error: assetsError } = await supabase
-        .from('crypto_assets')
-        .select('*');
-      
-      if (assetsError) throw assetsError;
-      setAssets(cryptoAssets || []);
-      
-    } catch (error) {
-      console.error("Error fetching admin data:", error);
+  // Admin check
+  useEffect(() => {
+    // This is a simplified admin check for demo purposes
+    // In a production app, you'd use a proper admin role check
+    if (!user || !user.email?.includes('admin')) {
       toast({
-        title: "Error loading data",
-        description: "You may not have administrative permissions.",
-        variant: "destructive",
+        title: "Access denied",
+        description: "You don't have permission to access this page",
+        variant: "destructive"
+      });
+      navigate('/');
+    }
+  }, [user, navigate]);
+
+  // Fetch users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('auth.users')
+          .select('id, email, created_at')
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        if (data) {
+          setUsers(data);
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load users",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchUsers();
+  }, []);
+
+  // Fetch user assets when a user is selected
+  useEffect(() => {
+    if (selectedUser) {
+      fetchUserAssets(selectedUser.id);
+    }
+  }, [selectedUser]);
+
+  const fetchUserAssets = async (userId: string) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('crypto_assets')
+        .select('*')
+        .eq('user_id', userId);
+        
+      if (error) throw error;
+      
+      if (data) {
+        setUserAssets(data.map(asset => ({
+          ...asset,
+          amount: Number(asset.amount)
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching user assets:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load user assets",
+        variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  // Filter users based on search
-  const filteredUsers = users.filter(user => 
-    user.display_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
-  // Filter assets based on selected user
-  const userAssets = selectedUser 
-    ? assets.filter(asset => asset.user_id === selectedUser.id)
-    : [];
-
-  // Handle edit user asset
-  const handleEditAsset = (asset: any) => {
-    setSelectedAsset(asset);
-    setNewAmount(asset.amount.toString());
-    setIsEditing(true);
+  const handleEditAsset = (asset: Asset) => {
+    setEditAssetId(asset.id);
+    setEditAmount(asset.amount.toString());
   };
 
-  // Save edited asset
-  const handleSaveAsset = async () => {
-    if (!selectedAsset || !newAmount) return;
-    
+  const handleCancelEdit = () => {
+    setEditAssetId(null);
+    setEditAmount('');
+  };
+
+  const handleSaveAsset = async (assetId: string) => {
     try {
-      const amount = parseFloat(newAmount);
-      
-      if (isNaN(amount)) {
+      const amount = parseFloat(editAmount);
+      if (isNaN(amount) || amount < 0) {
         toast({
           title: "Invalid amount",
-          description: "Please enter a valid number",
-          variant: "destructive",
+          description: "Please enter a valid amount",
+          variant: "destructive"
         });
         return;
       }
-      
+
       const { error } = await supabase
         .from('crypto_assets')
-        .update({ 
-          amount: amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedAsset.id);
+        .update({ amount: amount.toString() })
+        .eq('id', assetId);
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Asset balance updated successfully"
+      });
+      
+      // Update local state
+      setUserAssets(userAssets.map(asset => 
+        asset.id === assetId ? { ...asset, amount } : asset
+      ));
+      
+      // Reset edit state
+      setEditAssetId(null);
+      setEditAmount('');
+      
+    } catch (error) {
+      console.error('Error updating asset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update asset balance",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      // In a real app, this would call a secure admin API endpoint
+      // that handles user deletion and all associated data
+      const { error } = await supabase.auth.admin.deleteUser(userId);
       
       if (error) throw error;
       
       toast({
-        title: "Asset updated",
-        description: `Updated ${selectedAsset.symbol} balance to ${amount}`,
+        title: "Success",
+        description: "User deleted successfully"
       });
       
-      // Refresh data
-      fetchData();
-      setIsEditing(false);
-      
-    } catch (error) {
-      console.error("Error updating asset:", error);
-      toast({
-        title: "Update failed",
-        description: "There was an error updating the asset",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle delete user
-  const handleDeleteUser = (user: any) => {
-    setSelectedUser(user);
-    setIsDeleting(true);
-  };
-
-  // Confirm delete user
-  const handleConfirmDelete = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      // Delete user from authentication
-      const { error: authError } = await supabase.auth.admin.deleteUser(
-        selectedUser.id
-      );
-      
-      if (authError) {
-        // If this fails due to lacking admin rights, try using cascade delete
-        console.warn("Admin delete failed, falling back to cascade delete:", authError);
-        
-        // Delete profile (should cascade to assets and transactions)
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .delete()
-          .eq('id', selectedUser.id);
-          
-        if (profileError) throw profileError;
+      // Update local state
+      setUsers(users.filter(u => u.id !== userId));
+      if (selectedUser?.id === userId) {
+        setSelectedUser(null);
+        setUserAssets([]);
       }
       
-      toast({
-        title: "User deleted",
-        description: `User ${selectedUser.display_name || selectedUser.id} has been deleted`,
-      });
-      
-      // Refresh data
-      fetchData();
-      setIsDeleting(false);
-      
     } catch (error) {
-      console.error("Error deleting user:", error);
+      console.error('Error deleting user:', error);
       toast({
-        title: "Delete failed",
-        description: "There was an error deleting the user",
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete user. This operation requires admin privileges.",
+        variant: "destructive"
       });
     }
   };
 
-  // View user assets
-  const handleViewUserAssets = (user: any) => {
-    setSelectedUser(user);
-  };
+  const filteredUsers = users.filter(
+    user => user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  if (loading) {
-    return (
-      <div className="container mx-auto py-20 flex justify-center items-center">
-        <div className="text-center">
-          <Loader className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p>Loading administrator panel...</p>
-        </div>
-      </div>
-    );
+  if (!user) {
+    return null;
   }
 
   return (
-    <div className="container mx-auto py-10 px-4">
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="text-2xl">Administration Panel</CardTitle>
-          <CardDescription>
-            Manage users, assets, and system settings
-          </CardDescription>
-        </CardHeader>
-      </Card>
-
-      <Tabs defaultValue="users">
-        <TabsList className="mb-6">
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="assets">Assets</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="users">
+    <div className="container mx-auto py-16 px-4">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <Button variant="outline" onClick={signOut}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Sign Out
+        </Button>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Users List */}
+        <div className="lg:col-span-1">
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Users</CardTitle>
-                <div className="relative w-64">
-                  <Search className="absolute left-2 top-3 h-4 w-4 text-muted-foreground" />
+              <CardTitle className="flex justify-between items-center">
+                <span>Users</span>
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search users..."
-                    className="pl-8"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 h-8"
                   />
                 </div>
-              </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Last Active</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>{user.display_name || 'Anonymous'}</TableCell>
-                        <TableCell>{user.email || 'Unknown'}</TableCell>
-                        <TableCell>
-                          {user.lastSignIn 
-                            ? new Date(user.lastSignIn).toLocaleString() 
-                            : 'Never'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex space-x-2">
+              {isLoading ? (
+                <div className="text-center py-4">Loading users...</div>
+              ) : filteredUsers.length > 0 ? (
+                <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
+                  {filteredUsers.map(user => (
+                    <div 
+                      key={user.id}
+                      className={`p-3 rounded-md cursor-pointer flex justify-between items-center ${
+                        selectedUser?.id === user.id 
+                          ? 'bg-primary/10 border border-primary/30' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <div>
+                        <div className="font-medium">{user.email}</div>
+                        <div className="text-xs text-muted-foreground">ID: {user.id.substring(0, 8)}...</div>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Trash className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Confirm Deletion</DialogTitle>
+                          </DialogHeader>
+                          <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+                          <DialogFooter>
+                            <Button variant="outline">Cancel</Button>
                             <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleViewUserAssets(user)}
+                              variant="destructive"
+                              onClick={() => handleDeleteUser(user.id)}
                             >
-                              Assets
+                              Delete
                             </Button>
-                            <Button 
-                              variant="destructive" 
-                              size="sm"
-                              onClick={() => handleDeleteUser(user)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center">
-                        No users found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  No users found
+                </div>
+              )}
             </CardContent>
           </Card>
-
-          {selectedUser && (
-            <Card className="mt-8">
-              <CardHeader>
-                <CardTitle>
-                  Assets for {selectedUser.display_name || selectedUser.id}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Symbol</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {userAssets.length > 0 ? (
-                      userAssets.map((asset) => (
-                        <TableRow key={asset.id}>
-                          <TableCell>{asset.symbol}</TableCell>
-                          <TableCell>{asset.name}</TableCell>
-                          <TableCell>{asset.amount}</TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleEditAsset(asset)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
+        </div>
+        
+        {/* User Details */}
+        <div className="lg:col-span-2">
+          {selectedUser ? (
+            <Tabs defaultValue="assets">
+              <TabsList className="grid w-full grid-cols-1 mb-6">
+                <TabsTrigger value="assets">User Assets</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="assets">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Assets for {selectedUser.email}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoading ? (
+                      <div className="text-center py-4">Loading assets...</div>
+                    ) : userAssets.length > 0 ? (
+                      <div className="space-y-4">
+                        {userAssets.map(asset => (
+                          <div key={asset.id} className="border rounded-md p-4">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                {asset.image_url && (
+                                  <img 
+                                    src={asset.image_url} 
+                                    alt={asset.name} 
+                                    className="w-8 h-8 rounded-full"
+                                  />
+                                )}
+                                <div>
+                                  <div className="font-medium">{asset.name}</div>
+                                  <div className="text-xs text-muted-foreground">{asset.symbol}</div>
+                                </div>
+                              </div>
+                              
+                              {editAssetId === asset.id ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={editAmount}
+                                    onChange={(e) => setEditAmount(e.target.value)}
+                                    className="w-32"
+                                  />
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleSaveAsset(asset.id)}
+                                  >
+                                    <Check className="h-4 w-4 text-green-500" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={handleCancelEdit}
+                                  >
+                                    <X className="h-4 w-4 text-red-500" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="font-medium">{asset.amount} {asset.symbol}</div>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    onClick={() => handleEditAsset(asset)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="text-center">
-                          No assets found
-                        </TableCell>
-                      </TableRow>
+                      <div className="text-center py-4 text-muted-foreground">
+                        No assets found for this user
+                      </div>
                     )}
-                  </TableBody>
-                </Table>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-10">
+                <p className="text-muted-foreground">Select a user to view details</p>
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        <TabsContent value="assets">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Assets</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User ID</TableHead>
-                    <TableHead>Symbol</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {assets.length > 0 ? (
-                    assets.map((asset) => (
-                      <TableRow key={asset.id}>
-                        <TableCell className="font-mono text-xs">
-                          {asset.user_id.substring(0, 8)}...
-                        </TableCell>
-                        <TableCell>{asset.symbol}</TableCell>
-                        <TableCell>{asset.name}</TableCell>
-                        <TableCell>{asset.amount}</TableCell>
-                        <TableCell>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleEditAsset(asset)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center">
-                        No assets found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Edit Asset Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Asset</DialogTitle>
-            <DialogDescription>
-              Update the balance for this asset
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedAsset && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center space-x-4">
-                <div className="font-medium">Symbol:</div>
-                <div>{selectedAsset.symbol}</div>
-              </div>
-              
-              <div className="flex items-center space-x-4">
-                <div className="font-medium">Name:</div>
-                <div>{selectedAsset.name}</div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount</Label>
-                <Input
-                  id="amount"
-                  value={newAmount}
-                  onChange={(e) => setNewAmount(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveAsset}>
-              Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Delete User Dialog */}
-      <Dialog open={isDeleting} onOpenChange={setIsDeleting}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete User</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this user? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedUser && (
-            <div className="space-y-2 py-4">
-              <div>
-                <span className="font-medium">Name: </span>
-                {selectedUser.display_name || 'Anonymous'}
-              </div>
-              <div>
-                <span className="font-medium">Email: </span>
-                {selectedUser.email || 'Unknown'}
-              </div>
-              <div>
-                <span className="font-medium">ID: </span>
-                <span className="font-mono text-xs">{selectedUser.id}</span>
-              </div>
-            </div>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleting(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Delete User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </div>
   );
 };

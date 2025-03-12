@@ -1,55 +1,38 @@
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
-export type AssetType = {
+export type TransactionType = 'receive' | 'send' | 'buy' | 'sell';
+export type TransactionStatus = 'pending' | 'completed' | 'failed';
+
+export interface Transaction {
   id: string;
   user_id: string;
   symbol: string;
-  name: string;
   amount: number;
-  image_url: string | null;
-  created_at: string;
-  updated_at: string;
-  price: number;
-  value: number;
-};
-
-export type TransactionType = "receive" | "send" | "buy" | "sell";
-export type TransactionStatus = "pending" | "completed" | "failed";
-
-export type Transaction = {
-  id: string;
-  user_id: string;
   type: TransactionType;
-  symbol: string;
-  amount: number;
   recipient_address?: string;
   transaction_hash?: string;
   status: TransactionStatus;
   price_usd?: number;
   created_at: string;
   gas_fee?: number;
-};
+}
 
-const DEFAULT_CRYPTO_PRICES: Record<string, number> = {
-  btc: 82958.00,
-  eth: 1943.00,
-  sol: 126.20,
-  usdt: 0.99,
-  ltc: 91.75,
-};
-
-// Get crypto logos
-const CRYPTO_IMAGES: Record<string, string> = {
-  btc: "https://cryptologos.cc/logos/bitcoin-btc-logo.png",
-  eth: "https://cryptologos.cc/logos/ethereum-eth-logo.png",
-  sol: "https://cryptologos.cc/logos/solana-sol-logo.png",
-  usdt: "https://cryptologos.cc/logos/tether-usdt-logo.png",
-  ltc: "https://cryptologos.cc/logos/litecoin-ltc-logo.png",
-};
+export interface AssetType {
+  id: string;
+  user_id: string;
+  symbol: string;
+  name: string;
+  amount: number;
+  image_url?: string;
+  price: number;
+  value: number;
+  created_at: string;
+  updated_at: string;
+}
 
 export const useCryptoAssets = () => {
   const { user } = useAuth();
@@ -61,232 +44,256 @@ export const useCryptoAssets = () => {
   const [todayIncome, setTodayIncome] = useState(0);
   const [todayExpense, setTodayExpense] = useState(0);
 
-  // Fetch assets and transactions
+  // Asset price simulation (would be from a real API in production)
+  const ASSET_PRICES: Record<string, number> = {
+    'btc': 59324.36,
+    'eth': 3213.25,
+    'sol': 156.78,
+    'usdt': 1.00,
+    'ltc': 83.95
+  };
+
   const fetchAssets = async () => {
     if (!user) return;
 
     try {
-      setLoading(true);
+      const { data, error } = await supabase
+        .from('crypto_assets')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
 
-      // Fetch assets
-      const { data: assetsData, error: assetsError } = await supabase
-        .from("crypto_assets")
-        .select("*")
-        .eq("user_id", user.id);
+      if (error) throw error;
 
-      if (assetsError) throw assetsError;
+      const assetsWithPrice = data.map(asset => {
+        const price = ASSET_PRICES[asset.symbol.toLowerCase()] || 0;
+        const value = Number(asset.amount) * price;
+        return {
+          ...asset,
+          price,
+          value,
+          amount: Number(asset.amount)
+        };
+      });
 
-      // Add price data and calculate values
-      const assetsWithPrices = assetsData?.map(asset => ({
-        ...asset,
-        amount: Number(asset.amount), // Convert string to number if needed
-        price: DEFAULT_CRYPTO_PRICES[asset.symbol.toLowerCase()] || 0,
-        value: Number(asset.amount) * (DEFAULT_CRYPTO_PRICES[asset.symbol.toLowerCase()] || 0),
-        image_url: asset.image_url || CRYPTO_IMAGES[asset.symbol.toLowerCase()] || null
-      })) || [];
-
-      setAssets(assetsWithPrices);
+      setAssets(assetsWithPrice);
 
       // Calculate total balance
-      const total = assetsWithPrices.reduce((sum, asset) => sum + asset.value, 0);
+      const total = assetsWithPrice.reduce((sum, asset) => sum + asset.value, 0);
       setTotalBalance(total);
-
-      // Fetch transactions
-      const { data: txData, error: txError } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (txError) throw txError;
-
-      // Format transaction data
-      const formattedTransactions = txData.map(tx => ({
-        ...tx,
-        amount: Number(tx.amount),
-        price_usd: tx.price_usd ? Number(tx.price_usd) : undefined,
-        gas_fee: tx.gas_fee ? Number(tx.gas_fee) : 0,
-        type: tx.type as TransactionType,
-        status: tx.status as TransactionStatus
-      }));
-
-      setTransactions(formattedTransactions);
-
-      // Calculate today's income and expense
-      const today = new Date().toISOString().split('T')[0];
-      const todayTxs = formattedTransactions.filter(tx => 
-        tx.created_at.startsWith(today)
-      );
-
-      const income = todayTxs
-        .filter(tx => tx.type === 'receive' || tx.type === 'buy')
-        .reduce((sum, tx) => sum + (tx.amount * (tx.price_usd || DEFAULT_CRYPTO_PRICES[tx.symbol.toLowerCase()] || 0)), 0);
-      
-      const expense = todayTxs
-        .filter(tx => tx.type === 'send' || tx.type === 'sell')
-        .reduce((sum, tx) => sum + (tx.amount * (tx.price_usd || DEFAULT_CRYPTO_PRICES[tx.symbol.toLowerCase()] || 0)), 0);
-
-      setTodayIncome(income);
-      setTodayExpense(expense);
-
     } catch (error) {
-      console.error("Error fetching assets:", error);
+      console.error('Error fetching assets:', error);
       toast({
-        title: "Error",
-        description: "Failed to fetch your assets",
-        variant: "destructive",
+        title: "Error fetching assets",
+        description: "There was a problem loading your assets.",
+        variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Send transaction
+  const fetchTransactions = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Convert to proper types
+      const typedTransactions = data.map(tx => ({
+        ...tx,
+        amount: Number(tx.amount),
+        price_usd: tx.price_usd ? Number(tx.price_usd) : undefined,
+        gas_fee: tx.gas_fee ? Number(tx.gas_fee) : undefined,
+        // Ensure type is within allowed values
+        type: validateTransactionType(tx.type),
+        // Ensure status is within allowed values
+        status: validateTransactionStatus(tx.status),
+      }));
+      
+      setTransactions(typedTransactions);
+
+      // Calculate today's income & expense
+      const today = new Date().toISOString().split('T')[0];
+      
+      const todayTx = typedTransactions.filter(tx => 
+        tx.created_at.startsWith(today)
+      );
+      
+      const income = todayTx
+        .filter(tx => tx.type === 'receive' || tx.type === 'buy')
+        .reduce((sum, tx) => sum + (tx.price_usd ? tx.amount * tx.price_usd : 0), 0);
+      
+      const expense = todayTx
+        .filter(tx => tx.type === 'send' || tx.type === 'sell')
+        .reduce((sum, tx) => sum + (tx.price_usd ? tx.amount * tx.price_usd : 0), 0);
+      
+      setTodayIncome(income);
+      setTodayExpense(expense);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+  };
+
+  // Helper function to validate transaction type
+  const validateTransactionType = (type: string): TransactionType => {
+    const validTypes: TransactionType[] = ['receive', 'send', 'buy', 'sell'];
+    return validTypes.includes(type as TransactionType) 
+      ? (type as TransactionType) 
+      : 'receive';
+  };
+
+  // Helper function to validate transaction status
+  const validateTransactionStatus = (status: string): TransactionStatus => {
+    const validStatuses: TransactionStatus[] = ['pending', 'completed', 'failed'];
+    return validStatuses.includes(status as TransactionStatus) 
+      ? (status as TransactionStatus) 
+      : 'completed';
+  };
+
+  // Send a transaction
   const sendTransaction = async (
-    symbol: string, 
-    amount: number, 
-    recipientAddress: string, 
-    gasFee: number = 0.001
+    symbol: string,
+    amount: number,
+    recipientAddress: string,
+    gasFee: number
   ): Promise<boolean> => {
-    if (!user) {
+    if (!user) return false;
+    
+    // Check if the user has enough of the asset to send
+    const asset = assets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
+    if (!asset || asset.amount < amount) {
       toast({
-        title: "Not authenticated",
-        description: "Please sign in to perform transactions",
-        variant: "destructive",
+        title: "Insufficient balance",
+        description: `You don't have enough ${symbol} to complete this transaction.`,
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    // Check if user has enough ETH for gas fee
+    const ethAsset = assets.find(a => a.symbol.toLowerCase() === 'eth');
+    if (!ethAsset || ethAsset.amount < gasFee) {
+      toast({
+        title: "Insufficient gas",
+        description: `You need at least ${gasFee} ETH to cover the gas fee.`,
+        variant: "destructive"
       });
       return false;
     }
 
     try {
-      // Check if user has this asset
-      const asset = assets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
-      if (!asset) {
-        toast({
-          title: "Asset not found",
-          description: `You don't have any ${symbol}`,
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Check if user has enough balance
-      if (asset.amount < amount) {
-        toast({
-          title: "Insufficient balance",
-          description: `You don't have enough ${symbol} to send`,
-          variant: "destructive",
-        });
-        return false;
-      }
-
-      // Check for gas fee
-      const ethAsset = assets.find(a => a.symbol.toLowerCase() === 'eth');
-      if (!ethAsset || ethAsset.amount < gasFee) {
-        toast({
-          title: "Insufficient gas fee",
-          description: `You need at least ${gasFee} ETH for gas fee`,
-          variant: "destructive",
-        });
-        return false;
-      }
-
+      // Create a transaction hash (simplified for demo)
+      const transactionHash = `tx_${Math.random().toString(36).substring(2, 15)}`;
+      
       // 1. Record the transaction
       const { error: txError } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
+          symbol: symbol.toUpperCase(),
+          amount: amount.toString(),
           type: 'send',
-          symbol: symbol,
-          amount: amount,
           recipient_address: recipientAddress,
-          price_usd: DEFAULT_CRYPTO_PRICES[symbol.toLowerCase()],
+          transaction_hash: transactionHash,
           status: 'completed',
-          gas_fee: gasFee
+          price_usd: ASSET_PRICES[symbol.toLowerCase()].toString(),
+          gas_fee: gasFee.toString()
         });
-        
+      
       if (txError) throw txError;
       
-      // 2. Update the user's balance for the sent asset
-      const { error: updateError } = await supabase
+      // 2. Update the asset balance
+      const { error: assetError } = await supabase
         .from('crypto_assets')
-        .update({ 
-          amount: asset.amount - amount,
-          updated_at: new Date().toISOString()
-        })
+        .update({ amount: (asset.amount - amount).toString() })
         .eq('id', asset.id);
-        
-      if (updateError) throw updateError;
+      
+      if (assetError) throw assetError;
 
-      // 3. Update gas fee (deduct from ETH)
+      // 3. Deduct gas fee from ETH balance
       const { error: gasError } = await supabase
+        .from('crypto_assets')
+        .update({ amount: (ethAsset.amount - gasFee).toString() })
+        .eq('id', ethAsset.id);
+      
+      if (gasError) throw gasError;
+      
+      // 4. Record gas fee as a separate transaction
+      const { error: gasTxError } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
+          symbol: 'ETH',
+          amount: gasFee.toString(),
           type: 'send',
-          symbol: 'eth',
-          amount: gasFee,
           recipient_address: 'GAS_FEE',
-          price_usd: DEFAULT_CRYPTO_PRICES['eth'],
-          status: 'completed'
+          transaction_hash: `${transactionHash}_gas`,
+          status: 'completed',
+          price_usd: ASSET_PRICES['eth'].toString()
         });
-
-      if (gasError) throw gasError;
-
-      // 4. Update ETH balance
-      const { error: ethUpdateError } = await supabase
-        .from('crypto_assets')
-        .update({ 
-          amount: ethAsset.amount - gasFee,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', ethAsset.id);
-        
-      if (ethUpdateError) throw ethUpdateError;
+      
+      if (gasTxError) throw gasTxError;
       
       // Refresh data
       await fetchAssets();
+      await fetchTransactions();
       
       return true;
     } catch (error) {
-      console.error("Send transaction error:", error);
+      console.error('Error sending transaction:', error);
       toast({
         title: "Transaction failed",
-        description: "There was an error processing your transaction",
-        variant: "destructive",
+        description: "There was a problem processing your transaction.",
+        variant: "destructive"
       });
       return false;
     }
   };
 
-  // Initial fetch
   useEffect(() => {
     if (user) {
-      fetchAssets();
-
-      // Set up real-time subscription for assets
-      const assetsChannel = supabase
-        .channel('table-db-changes')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'crypto_assets', filter: `user_id=eq.${user.id}` },
-          () => fetchAssets()
-        )
-        .subscribe();
-
-      // Set up real-time subscription for transactions
-      const transactionsChannel = supabase
-        .channel('transactions-changes')
-        .on('postgres_changes', 
-          { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
-          () => fetchAssets()
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(assetsChannel);
-        supabase.removeChannel(transactionsChannel);
-      };
+      setLoading(true);
+      Promise.all([fetchAssets(), fetchTransactions()])
+        .finally(() => setLoading(false));
     }
-  }, [user?.id]);
+  }, [user]);
+
+  // Subscribe to real-time updates when component mounts
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to assets changes
+    const assetsSubscription = supabase
+      .channel('crypto_assets_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'crypto_assets', filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchAssets();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to transactions changes
+    const transactionsSubscription = supabase
+      .channel('transactions_changes')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'transactions', filter: `user_id=eq.${user.id}` },
+        () => {
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      assetsSubscription.unsubscribe();
+      transactionsSubscription.unsubscribe();
+    };
+  }, [user]);
 
   return {
     assets,
@@ -295,7 +302,10 @@ export const useCryptoAssets = () => {
     totalBalance,
     todayIncome,
     todayExpense,
-    fetchAssets,
-    sendTransaction
+    sendTransaction,
+    refreshData: () => {
+      fetchAssets();
+      fetchTransactions();
+    }
   };
 };

@@ -16,25 +16,28 @@ const enableRealtimeForTables = async () => {
   try {
     await supabase.realtime.setAuth(SUPABASE_PUBLISHABLE_KEY);
     
-    // Create channel for crypto_assets
-    supabase.channel('schema-db-changes')
+    // Create channels for realtime subscriptions
+    const cryptoAssetsChannel = supabase.channel('crypto-assets-channel')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public',
         table: 'crypto_assets'
       }, payload => {
-        console.log('Real-time update:', payload);
+        console.log('Crypto asset updated:', payload);
       })
+      .subscribe();
+      
+    const transactionsChannel = supabase.channel('transactions-channel')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public',
         table: 'transactions'
       }, payload => {
-        console.log('Real-time transaction:', payload);
+        console.log('Transaction:', payload);
       })
       .subscribe();
       
-    console.log('Realtime channels enabled');
+    console.log('Realtime channels enabled for crypto assets and transactions');
   } catch (error) {
     console.error('Error setting up realtime:', error);
   }

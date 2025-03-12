@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, CreditCard } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export function Navbar() {
@@ -29,7 +29,6 @@ export function Navbar() {
     { name: "Home", path: "/" },
     { name: "Markets", path: "/markets" },
     { name: "Dashboard", path: "/dashboard" },
-    { name: "Transaction", path: "/transaction" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -92,14 +91,6 @@ export function Navbar() {
                   onClick={signOut}
                 >
                   Sign Out
-                </Button>
-                <Button
-                  variant="outline"
-                  className="bg-crypto-medium-blue border-crypto-light-blue/30 text-white hover:bg-crypto-light-blue/10"
-                  onClick={() => window.location.href = "/transaction"}
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Transaction
                 </Button>
               </div>
             ) : (
