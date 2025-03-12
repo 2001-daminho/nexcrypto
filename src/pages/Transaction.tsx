@@ -130,7 +130,7 @@ const Transaction = () => {
             </div>
             <div className="flex justify-between text-sm mt-2">
               <span>Fee:</span>
-              <span>$0.00 (Demo)</span>
+              <span>$0.00</span>
             </div>
           </div>
         </CardContent>
