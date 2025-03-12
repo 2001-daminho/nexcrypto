@@ -9,7 +9,7 @@ export interface CryptoAsset {
   symbol: string;
   name: string;
   amount: number;
-  image_url: string;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
   price?: number;
@@ -22,10 +22,10 @@ export interface Transaction {
   type: 'buy' | 'sell' | 'receive' | 'send';
   symbol: string;
   amount: number;
-  price_usd?: number;
+  price_usd?: number | null;
   status: 'pending' | 'completed' | 'failed';
-  recipient_address?: string;
-  transaction_hash?: string;
+  recipient_address?: string | null;
+  transaction_hash?: string | null;
   created_at: string;
 }
 
@@ -68,8 +68,10 @@ export function useCryptoAssets() {
       // Add price and value to each asset
       const assetsWithValue = (data || []).map(asset => ({
         ...asset,
+        // Convert amount from string to number if needed
+        amount: typeof asset.amount === 'string' ? parseFloat(asset.amount) : asset.amount,
         price: getCryptoPrice(asset.symbol),
-        value: parseFloat(asset.amount) * getCryptoPrice(asset.symbol)
+        value: (typeof asset.amount === 'string' ? parseFloat(asset.amount) : asset.amount) * getCryptoPrice(asset.symbol)
       }));
       
       setAssets(assetsWithValue);
@@ -96,7 +98,19 @@ export function useCryptoAssets() {
         .order('created_at', { ascending: false });
         
       if (error) throw error;
-      setTransactions(data || []);
+      
+      // Ensure transaction types match our interface
+      const typedTransactions = (data || []).map(tx => ({
+        ...tx,
+        // Convert amount from string to number if needed
+        amount: typeof tx.amount === 'string' ? parseFloat(tx.amount) : tx.amount,
+        // Ensure type is one of the allowed types
+        type: (tx.type as 'buy' | 'sell' | 'receive' | 'send'),
+        // Ensure status is one of the allowed statuses
+        status: (tx.status as 'pending' | 'completed' | 'failed')
+      })) as Transaction[];
+      
+      setTransactions(typedTransactions);
     } catch (err: any) {
       console.error('Error fetching transactions:', err);
       setError(err);
@@ -122,7 +136,8 @@ export function useCryptoAssets() {
           type,
           symbol,
           amount,
-          price_usd: price
+          price_usd: price,
+          status: 'completed'
         })
         .select()
         .single();
@@ -141,7 +156,11 @@ export function useCryptoAssets() {
       
       if (existingAsset) {
         // Make sure we don't go negative on sells
-        if (type === 'sell' && parseFloat(existingAsset.amount) < amount) {
+        const currentAmount = typeof existingAsset.amount === 'string' 
+          ? parseFloat(existingAsset.amount) 
+          : existingAsset.amount;
+          
+        if (type === 'sell' && currentAmount < amount) {
           throw new Error('Insufficient balance');
         }
         
@@ -149,7 +168,7 @@ export function useCryptoAssets() {
         const { error: updateError } = await supabase
           .from('crypto_assets')
           .update({ 
-            amount: parseFloat(existingAsset.amount) + assetAmount,
+            amount: currentAmount + assetAmount,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingAsset.id);
