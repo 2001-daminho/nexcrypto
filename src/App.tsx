@@ -14,8 +14,8 @@ import Index from "@/pages/Index";
 import Markets from "@/pages/Markets";
 import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
-import Transaction from "@/pages/Transaction";
 import NotFound from "@/pages/NotFound";
+import Administrator from "@/pages/Administrator";
 
 const queryClient = new QueryClient();
 
@@ -35,7 +35,7 @@ const App = () => (
                 <Route path="/markets" element={<Markets />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/auth" element={<Auth />} />
-                <Route path="/transaction" element={<Transaction />} />
+                <Route path="/administrator" element={<Administrator />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
