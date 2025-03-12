@@ -49,25 +49,6 @@ const Markets = () => {
         >
           All Assets
         </Button>
-        <Button
-          variant="ghost"
-          className="text-white/50 hover:text-white hover:bg-white/5 mr-2"
-        >
-          Gainers
-        </Button>
-        <Button
-          variant="ghost"
-          className="text-white/50 hover:text-white hover:bg-white/5 mr-2"
-        >
-          Losers
-        </Button>
-        <Button
-          variant="ghost"
-          className="text-white/50 hover:text-white hover:bg-white/5 mr-2 flex items-center"
-        >
-          <Filter size={16} className="mr-1" />
-          More Filters
-        </Button>
       </div>
       
       {isLoading ? (
