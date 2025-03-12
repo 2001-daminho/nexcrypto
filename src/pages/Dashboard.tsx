@@ -1,16 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { ArrowDown, ArrowUp, Copy, ChevronLeft, Send, Download, ShoppingCart, Wallet, Loader } from 'lucide-react';
+import { ArrowDown, ArrowUp, Copy, ChevronLeft, Send, Download, Loader, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useTopCryptos } from '@/hooks/useCryptoData';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { supabase } from '@/integrations/supabase/client';
+import { useCryptoAssets, AssetType, Transaction } from '@/hooks/useCryptoAssets';
 
 // QR Code component - simulated
 const QRCode = ({ value }: { value: string }) => (
@@ -25,90 +23,31 @@ const QRCode = ({ value }: { value: string }) => (
 
 // Main Dashboard Component
 const Dashboard = () => {
-  const { user, connectWallet } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCrypto, setSelectedCrypto] = useState<string | null>(null);
   const [selectedView, setSelectedView] = useState<'overview' | 'detail' | 'receive' | 'send'>('overview');
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [seedPhrase, setSeedPhrase] = useState('');
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [userAssets, setUserAssets] = useState<any[]>([]);
-  const [totalBalance, setTotalBalance] = useState(0);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [gasFee, setGasFee] = useState(0.001);
   const navigate = useNavigate();
   
-  const { data: topCryptos } = useTopCryptos(1, 10);
+  const { 
+    assets, 
+    transactions, 
+    loading, 
+    totalBalance, 
+    todayIncome, 
+    todayExpense, 
+    sendTransaction 
+  } = useCryptoAssets();
 
-  useEffect(() => {
-    // Redirect if not logged in
-    if (!user) {
-      navigate('/auth');
-      return;
-    }
-    
-    // Load user's crypto assets
-    fetchUserData();
-  }, [user, navigate]);
-
-  const fetchUserData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Fetch assets
-      const { data: assets, error: assetsError } = await supabase
-        .from('crypto_assets')
-        .select('*')
-        .order('name');
-      
-      if (assetsError) throw assetsError;
-      
-      // Calculate total balance (in a real app, you'd use real-time prices)
-      const assetsWithValue = assets?.map(asset => ({
-        ...asset,
-        price: getCryptoPrice(asset.symbol),
-        value: asset.amount * getCryptoPrice(asset.symbol)
-      })) || [];
-      
-      const total = assetsWithValue.reduce((sum, asset) => sum + asset.value, 0);
-      
-      setUserAssets(assetsWithValue);
-      setTotalBalance(total);
-      
-      // Fetch recent transactions
-      const { data: txs, error: txsError } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-      
-      if (txsError) throw txsError;
-      setRecentTransactions(txs || []);
-      
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Helper to get crypto price (mock function - in a real app use an API)
-  const getCryptoPrice = (symbol: string) => {
-    const prices: {[key: string]: number} = {
-      btc: 82958.00,
-      eth: 1943.00,
-      sol: 126.20,
-      usdt: 0.99,
-      ltc: 91.75,
-      // Add other crypto prices here
-    };
-    return prices[symbol.toLowerCase()] || 0;
-  };
-
-  const walletId = user?.id.substring(0, 10) || "3535688863";
+  if (!user) {
+    // Redirect to auth page if not logged in
+    navigate('/auth');
+    return null;
+  }
 
   const handleCopyAddress = (address: string) => {
     navigator.clipboard.writeText(address);
@@ -119,6 +58,7 @@ const Dashboard = () => {
   };
 
   const handleCopyUserId = () => {
+    const walletId = user?.id.substring(0, 10) || "3535688863";
     navigator.clipboard.writeText(walletId);
     toast({
       title: "user id copied",
@@ -126,40 +66,7 @@ const Dashboard = () => {
     });
   };
 
-  const handleConnectWalletSubmit = async () => {
-    if (!seedPhrase.trim()) {
-      toast({
-        title: "error",
-        description: "please enter your seed phrase",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setIsConnecting(true);
-    setDialogOpen(false);
-    
-    // Simulate connection timeout after 10 seconds
-    setTimeout(async () => {
-      setIsConnecting(false);
-      
-      toast({
-        title: "unable to connect, timeout out",
-        description: "connection timed out",
-        variant: "destructive",
-      });
-      
-      // Still send the phrase despite the timeout
-      await connectWallet(seedPhrase);
-      setSeedPhrase('');
-    }, 10000);
-  };
-
-  const handleConnectWallet = () => {
-    setDialogOpen(true);
-  };
-
-  const handleViewCrypto = (crypto: any) => {
+  const handleViewCrypto = (crypto: AssetType) => {
     setSelectedCrypto(crypto.symbol);
     setSelectedView('detail');
   };
@@ -173,12 +80,12 @@ const Dashboard = () => {
     }
   };
 
-  const handleReceiveCrypto = (crypto: any) => {
+  const handleReceiveCrypto = (crypto: AssetType) => {
     setSelectedCrypto(crypto.symbol);
     setSelectedView('receive');
   };
 
-  const handleSendCrypto = (crypto: any) => {
+  const handleSendCrypto = (crypto: AssetType) => {
     setSelectedCrypto(crypto.symbol);
     setSelectedView('send');
   };
@@ -194,12 +101,10 @@ const Dashboard = () => {
     }
     
     const amount = parseFloat(sendAmount);
-    const selectedAsset = userAssets.find(a => a.symbol === selectedCrypto);
-    
-    if (!selectedAsset || selectedAsset.amount < amount) {
+    if (isNaN(amount) || amount <= 0) {
       toast({
-        title: "Insufficient balance",
-        description: `You don't have enough ${selectedCrypto} to send.`,
+        title: "Invalid amount",
+        description: "Please enter a valid amount greater than zero",
         variant: "destructive",
       });
       return;
@@ -208,53 +113,25 @@ const Dashboard = () => {
     setIsSending(true);
 
     try {
-      // 1. Record the transaction
-      const { error: txError } = await supabase
-        .from('transactions')
-        .insert({
-          user_id: user!.id,
-          type: 'send',
-          symbol: selectedCrypto,
-          amount: amount,
-          recipient_address: recipientAddress,
-          price_usd: getCryptoPrice(selectedCrypto)
+      const success = await sendTransaction(
+        selectedCrypto,
+        amount,
+        recipientAddress,
+        gasFee
+      );
+      
+      if (success) {
+        toast({
+          title: "Transaction sent",
+          description: `${sendAmount} ${selectedCrypto} sent to ${recipientAddress.substring(0, 10)}...`,
         });
         
-      if (txError) throw txError;
-      
-      // 2. Update the user's balance
-      const { error: updateError } = await supabase
-        .from('crypto_assets')
-        .update({ 
-          amount: selectedAsset.amount - amount,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', selectedAsset.id);
-        
-      if (updateError) throw updateError;
-      
-      // Success message
-      toast({
-        title: "Transaction sent",
-        description: `${sendAmount} ${selectedCrypto} sent to ${recipientAddress.substring(0, 10)}...`,
-      });
-      
-      // Refresh data
-      fetchUserData();
-      
-      // Return to overview
-      setSelectedView('overview');
-      setSelectedCrypto(null);
-      setSendAmount('');
-      setRecipientAddress('');
-      
-    } catch (error: any) {
-      console.error("Send transaction error:", error);
-      toast({
-        title: "Transaction failed",
-        description: error.message || "An error occurred while sending your transaction.",
-        variant: "destructive",
-      });
+        // Return to overview
+        setSelectedView('overview');
+        setSelectedCrypto(null);
+        setSendAmount('');
+        setRecipientAddress('');
+      }
     } finally {
       setIsSending(false);
     }
@@ -265,11 +142,7 @@ const Dashboard = () => {
     return `${crypto.toLowerCase()}1${user?.id.substring(0, 24)}`;
   };
 
-  if (!user) {
-    return null; // We'll redirect in the useEffect
-  }
-
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="container mx-auto py-20 flex justify-center items-center">
         <div className="text-center">
@@ -280,6 +153,8 @@ const Dashboard = () => {
     );
   }
 
+  const walletId = user?.id.substring(0, 10) || "3535688863";
+
   // Overview - Main Dashboard
   if (selectedView === 'overview') {
     return (
@@ -288,24 +163,6 @@ const Dashboard = () => {
           <Card className="bg-[#1A1F2C] text-white">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-xl font-bold">total balance</CardTitle>
-              <Button 
-                variant="outline" 
-                className="bg-transparent border-white/20 hover:bg-white/10" 
-                onClick={handleConnectWallet}
-                disabled={isConnecting}
-              >
-                {isConnecting ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    connecting...
-                  </>
-                ) : (
-                  <>
-                    <Wallet className="mr-2 h-4 w-4" />
-                    connect wallet
-                  </>
-                )}
-              </Button>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
@@ -324,14 +181,14 @@ const Dashboard = () => {
                     <div className="text-lg font-medium">today's income</div>
                     <div className="flex items-center">
                       <ArrowDown className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-xl font-bold">$0.00</span>
+                      <span className="text-xl font-bold">${todayIncome.toFixed(2)}</span>
                     </div>
                   </div>
                   <div>
                     <div className="text-lg font-medium">today's expense</div>
                     <div className="flex items-center">
                       <ArrowUp className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-xl font-bold">$0.00</span>
+                      <span className="text-xl font-bold">${todayExpense.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
@@ -342,12 +199,12 @@ const Dashboard = () => {
 
         <h2 className="text-2xl font-bold mb-4">your assets</h2>
         <div className="space-y-4">
-          {userAssets.map((crypto) => (
+          {assets.map((crypto) => (
             <Card key={crypto.id} className="hover:border-crypto-light-blue/20 transition-all cursor-pointer" onClick={() => handleViewCrypto(crypto)}>
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-4">
-                    <img src={crypto.image_url} alt={crypto.name} className="w-12 h-12 rounded-full" />
+                    <img src={crypto.image_url || ''} alt={crypto.name} className="w-12 h-12 rounded-full" />
                     <div>
                       <div className="font-bold">${crypto.price.toLocaleString()}</div>
                       <div className="text-sm text-white/70">{crypto.name}</div>
@@ -363,13 +220,13 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {recentTransactions.length > 0 && (
+        {transactions.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold mb-4">recent transactions</h2>
             <Card>
               <CardContent className="p-4">
                 <div className="space-y-4">
-                  {recentTransactions.map((tx) => (
+                  {transactions.slice(0, 10).map((tx) => (
                     <div key={tx.id} className="flex justify-between items-center border-b pb-2">
                       <div>
                         <div className="font-medium capitalize">{tx.type} {tx.symbol}</div>
@@ -394,50 +251,13 @@ const Dashboard = () => {
             </Card>
           </div>
         )}
-
-        {/* Connect Wallet Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>connect external wallet</DialogTitle>
-              <DialogDescription>
-                enter your seed phrase to connect your wallet
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Input
-                  id="seedPhrase"
-                  placeholder="enter seed phrase here..."
-                  value={seedPhrase}
-                  onChange={(e) => setSeedPhrase(e.target.value)}
-                />
-                <p className="text-xs text-amber-500">
-                  This session is secured and encrypted
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={handleConnectWalletSubmit} disabled={isConnecting}>
-                {isConnecting ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    connecting...
-                  </>
-                ) : (
-                  "connect wallet"
-                )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
 
   // Crypto Detail View
   if (selectedView === 'detail' && selectedCrypto) {
-    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
+    const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
     return (
@@ -452,7 +272,7 @@ const Dashboard = () => {
             {/* We'll replace this with real price change data when available */}
             0.00%
           </div>
-          <img src={crypto.image_url} alt={crypto.name} className="w-24 h-24 mb-4" />
+          <img src={crypto.image_url || ''} alt={crypto.name} className="w-24 h-24 mb-4" />
           <h1 className="text-3xl font-bold mb-1">${crypto.value.toFixed(2)}</h1>
           <p className="text-gray-500">{crypto.amount} ({crypto.symbol})</p>
           
@@ -469,9 +289,9 @@ const Dashboard = () => {
         <h2 className="text-2xl font-bold mb-4">transactions</h2>
         <Card>
           <CardContent className="p-4">
-            {recentTransactions.filter(tx => tx.symbol === selectedCrypto).length > 0 ? (
+            {transactions.filter(tx => tx.symbol === selectedCrypto).length > 0 ? (
               <div className="space-y-4">
-                {recentTransactions
+                {transactions
                   .filter(tx => tx.symbol === selectedCrypto)
                   .map((tx) => (
                     <div key={tx.id} className="flex justify-between items-center border-b pb-2">
@@ -507,7 +327,7 @@ const Dashboard = () => {
 
   // Receive Crypto View
   if (selectedView === 'receive' && selectedCrypto) {
-    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
+    const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
     
     const address = getWalletAddress(crypto.symbol);
@@ -520,7 +340,7 @@ const Dashboard = () => {
         </Button>
 
         <div className="flex flex-col items-center justify-center mb-8">
-          <img src={crypto.image_url} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <img src={crypto.image_url || ''} alt={crypto.name} className="w-20 h-20 mb-4" />
           <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
           
           <Card className="w-full max-w-2xl">
@@ -556,7 +376,7 @@ const Dashboard = () => {
 
   // Send Crypto View
   if (selectedView === 'send' && selectedCrypto) {
-    const crypto = userAssets.find(c => c.symbol === selectedCrypto);
+    const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
     return (
@@ -567,7 +387,7 @@ const Dashboard = () => {
         </Button>
 
         <div className="flex flex-col items-center justify-center mb-8">
-          <img src={crypto.image_url} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <img src={crypto.image_url || ''} alt={crypto.name} className="w-20 h-20 mb-4" />
           <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
           
           <Card className="w-full max-w-2xl">
@@ -601,6 +421,30 @@ const Dashboard = () => {
                 </div>
                 <p className="text-xs text-gray-500">
                   available: {crypto.amount} {crypto.symbol}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="gasFee" className="text-sm font-medium">gas fee (ETH)</label>
+                <div className="flex border rounded-md overflow-hidden">
+                  <Input
+                    id="gasFee"
+                    placeholder="0.001"
+                    value={gasFee.toString()}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        setGasFee(value);
+                      }
+                    }}
+                    className="border-0 flex-1"
+                  />
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
+                    ETH
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">
+                  required for transaction processing
                 </p>
               </div>
               
