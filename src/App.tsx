@@ -16,7 +16,6 @@ import Dashboard from "@/pages/Dashboard";
 import Auth from "@/pages/Auth";
 import Transaction from "@/pages/Transaction";
 import NotFound from "@/pages/NotFound";
-import CompanyDetails from "@/pages/CompanyDetails";
 
 const queryClient = new QueryClient();
 
@@ -37,7 +36,6 @@ const App = () => (
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/transaction" element={<Transaction />} />
-                <Route path="/company-details" element={<CompanyDetails />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
