@@ -48,7 +48,7 @@ export function Navbar() {
             to="/" 
             className="text-2xl font-bold flex items-center transition-all hover:opacity-80"
           >
-            <span className="gradient-text">example</span>
+            <span className="gradient-text">Nex</span>
             <span className="text-white">crypto</span>
           </Link>
           
