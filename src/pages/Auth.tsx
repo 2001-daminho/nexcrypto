@@ -9,7 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader } from 'lucide-react';
+import { Loader, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Auth = () => {
   const { user } = useAuth();
@@ -18,6 +19,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -68,7 +70,7 @@ const Auth = () => {
     if (!email || !password || !firstName || !lastName || !confirmPassword) {
       toast({
         title: "Missing fields",
-        description: "Please fill in all fields",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
@@ -93,6 +95,7 @@ const Auth = () => {
             first_name: firstName,
             last_name: lastName,
             display_name: `${firstName} ${lastName}`,
+            referral_code: referralCode, // Store referral code in user metadata
           },
         },
       });
@@ -101,7 +104,9 @@ const Auth = () => {
       
       toast({
         title: "Account created",
-        description: "Your account has been created successfully!",
+        description: referralCode 
+          ? "Your account has been created successfully with referral code! You'll receive your signup bonus soon."
+          : "Your account has been created successfully!",
       });
       
       // Redirect to dashboard
@@ -257,6 +262,30 @@ const Auth = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle size={16} className="text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Enter a referral code to receive signup bonus</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  id="referralCode"
+                  placeholder="Enter referral code if you have one"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Enter a valid referral code to receive a signup bonus!
+                </p>
               </div>
               <Button
                 onClick={handleSignUp}

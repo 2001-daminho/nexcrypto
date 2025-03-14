@@ -39,38 +39,9 @@ const Administrator = () => {
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
 
-  // Admin check - now checks for 'admin' anywhere in email
-  useEffect(() => {
-    const checkAdminAccess = async () => {
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please sign in to access this page",
-          variant: "destructive"
-        });
-        navigate('/auth');
-        return;
-      }
-      
-      // For demo purposes, any email containing 'admin' will be considered an admin
-      if (!user.email?.toLowerCase().includes('admin')) {
-        toast({
-          title: "Access denied",
-          description: "You don't have permission to access this page",
-          variant: "destructive"
-        });
-        navigate('/dashboard');
-      }
-    };
-    
-    checkAdminAccess();
-  }, [user, navigate]);
-
   // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
-      if (!user?.email?.toLowerCase().includes('admin')) return;
-      
       try {
         const { data, error } = await supabase
           .from('admin_users')
@@ -95,7 +66,7 @@ const Administrator = () => {
     };
     
     fetchUsers();
-  }, [user]);
+  }, []);
 
   // Fetch user assets when a user is selected
   useEffect(() => {
@@ -227,10 +198,12 @@ const Administrator = () => {
     <div className="container mx-auto py-16 px-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        <Button variant="outline" onClick={signOut}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sign Out
-        </Button>
+        {user && (
+          <Button variant="outline" onClick={signOut}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sign Out
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

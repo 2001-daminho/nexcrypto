@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,6 @@ const Dashboard = () => {
   const [sendAmount, setSendAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [gasFee, setGasFee] = useState(0.001);
   const [activeTab, setActiveTab] = useState<'assets' | 'transactions'>('assets');
   const navigate = useNavigate();
   
@@ -271,6 +269,10 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
+    // Calculate gas fee as 1% of the amount in the same currency
+    const amount = parseFloat(sendAmount) || 0;
+    const gasFeeAmount = amount * 0.01; // 1% of the transaction amount
+
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
         <Button variant="ghost" onClick={handleBack} className="mb-6 hover:bg-transparent pl-0">
@@ -314,26 +316,20 @@ const Dashboard = () => {
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="gasFee" className="text-sm font-medium">gas fee (ETH)</label>
+                <label htmlFor="gasFee" className="text-sm font-medium">gas fee ({crypto.symbol})</label>
                 <div className="flex border rounded-md overflow-hidden">
                   <Input
                     id="gasFee"
-                    placeholder="0.001"
-                    value={gasFee.toString()}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value) && value >= 0) {
-                        setGasFee(value);
-                      }
-                    }}
-                    className="border-0 flex-1"
+                    value={gasFeeAmount.toFixed(6)}
+                    readOnly
+                    className="border-0 flex-1 bg-gray-100 dark:bg-gray-800"
                   />
                   <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
-                    ETH
+                    {crypto.symbol}
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  required for transaction processing
+                  1% transaction fee for processing
                 </p>
               </div>
               
