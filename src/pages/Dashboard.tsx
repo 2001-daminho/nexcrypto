@@ -322,7 +322,7 @@ const Dashboard = () => {
                     id="gasFee"
                     value={gasFeeAmount.toFixed(6)}
                     readOnly
-                    className="border-0 flex-1 bg-gray-100 dark:bg-gray-800"
+                    className="border-0 flex-1"
                   />
                   <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
                     {crypto.symbol}
