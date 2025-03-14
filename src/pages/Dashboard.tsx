@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,6 @@ const Dashboard = () => {
     setIsSending(true);
 
     try {
-      // Fixed: Removed the gasFee parameter as sendTransaction now calculates it internally
       const success = await sendTransaction(
         selectedCrypto,
         amount,
@@ -269,9 +269,16 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
-    // Calculate gas fee as 1% of the amount in the same currency
+    // Calculate USD value
     const amount = parseFloat(sendAmount) || 0;
-    const gasFeeAmount = amount * 0.01; // 1% of the transaction amount
+    const usdValue = amount * crypto.price;
+    
+    // Calculate gas fee as 10% of the amount in the same currency
+    const gasFeeAmount = amount * 0.10;
+    const gasFeeUsdValue = gasFeeAmount * crypto.price;
+    
+    // Check if minimum withdrawal is met
+    const isMinimumMet = usdValue >= 1000;
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
@@ -310,9 +317,14 @@ const Dashboard = () => {
                     {crypto.symbol}
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  available: {crypto.amount} {crypto.symbol}
-                </p>
+                <div className="flex justify-between">
+                  <p className="text-xs text-gray-500">
+                    available: {crypto.amount} {crypto.symbol}
+                  </p>
+                  <p className={`text-xs ${isMinimumMet ? 'text-green-500' : 'text-red-500'}`}>
+                    USD value: ${usdValue.toFixed(2)} {!isMinimumMet && '(minimum $1,000)'}
+                  </p>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -328,15 +340,20 @@ const Dashboard = () => {
                     {crypto.symbol}
                   </div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  1% transaction fee for processing
-                </p>
+                <div className="flex justify-between">
+                  <p className="text-xs text-gray-500">
+                    10% transaction fee
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    USD value: ${gasFeeUsdValue.toFixed(2)}
+                  </p>
+                </div>
               </div>
               
               <Button 
                 className="w-full" 
                 onClick={handleSendTransaction}
-                disabled={isSending}
+                disabled={isSending || !isMinimumMet}
               >
                 {isSending ? (
                   <>
@@ -344,7 +361,7 @@ const Dashboard = () => {
                     sending...
                   </>
                 ) : (
-                  "send"
+                  isMinimumMet ? "send" : "minimum withdrawal $1,000"
                 )}
               </Button>
             </div>

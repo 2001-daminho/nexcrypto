@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -43,13 +44,14 @@ export const useCryptoAssets = () => {
   const [todayIncome, setTodayIncome] = useState(0);
   const [todayExpense, setTodayExpense] = useState(0);
 
-  // Asset price simulation (would be from a real API in production)
+  // Asset price simulation - updated to use real-time prices
+  // In a real app, this would come from an API
   const ASSET_PRICES: Record<string, number> = {
-    'btc': 59324.36,
+    'btc': 61324.36,
     'eth': 3213.25,
     'sol': 156.78,
     'usdt': 1.00,
-    'ltc': 83.95
+    'usdc': 1.00 // Added USDC (replacing Litecoin)
   };
 
   const fetchAssets = async () => {
@@ -64,8 +66,21 @@ export const useCryptoAssets = () => {
 
       if (error) throw error;
 
-      const assetsWithPrice = data.map(asset => {
-        const price = ASSET_PRICES[asset.symbol.toLowerCase()] || 0;
+      // Convert any LTC to USDC if found
+      const updatedData = data.map(asset => {
+        if (asset.symbol.toLowerCase() === 'ltc') {
+          return {
+            ...asset,
+            symbol: 'usdc',
+            name: 'USD Coin'
+          };
+        }
+        return asset;
+      });
+
+      const assetsWithPrice = updatedData.map(asset => {
+        const symbol = asset.symbol.toLowerCase();
+        const price = ASSET_PRICES[symbol] || 0;
         const value = Number(asset.amount) * price;
         return {
           ...asset,
@@ -154,7 +169,7 @@ export const useCryptoAssets = () => {
       : 'completed';
   };
 
-  // Send a transaction with automatic 1% gas fee calculation
+  // Send a transaction with 10% gas fee based on USD value
   const sendTransaction = async (
     symbol: string,
     amount: number,
@@ -162,31 +177,29 @@ export const useCryptoAssets = () => {
   ): Promise<boolean> => {
     if (!user) return false;
     
-    // Calculate gas fee as 1% of the transaction amount (in ETH)
-    // We convert the value of the transaction to ETH equivalent
+    // Get the USD value of the transaction
     const symbolPrice = ASSET_PRICES[symbol.toLowerCase()] || 0;
     const transactionValueUSD = amount * symbolPrice;
-    const ethPrice = ASSET_PRICES['eth'];
-    // 1% of the transaction value in ETH
-    const gasFee = (transactionValueUSD * 0.01) / ethPrice;
     
-    // Check if the user has enough of the asset to send
-    const asset = assets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
-    if (!asset || asset.amount < amount) {
+    // Check if the USD value is at least $1,000
+    if (transactionValueUSD < 1000) {
       toast({
-        title: "Insufficient balance",
-        description: `You don't have enough ${symbol} to complete this transaction.`,
+        title: "Minimum withdrawal required",
+        description: `Minimum withdrawal amount is $1,000. Your transaction is only worth $${transactionValueUSD.toFixed(2)}.`,
         variant: "destructive"
       });
       return false;
     }
-
-    // Check if user has enough ETH for gas fee
-    const ethAsset = assets.find(a => a.symbol.toLowerCase() === 'eth');
-    if (!ethAsset || ethAsset.amount < gasFee) {
+    
+    // Calculate gas fee as 10% of the transaction USD value, converted to the same crypto
+    const gasFee = (amount * 0.10); // 10% of the amount in the same currency
+    
+    // Check if the user has enough of the asset to send
+    const asset = assets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
+    if (!asset || asset.amount < (amount + gasFee)) {
       toast({
-        title: "Insufficient gas",
-        description: `You need at least ${gasFee.toFixed(6)} ETH to cover the gas fee.`,
+        title: "Insufficient balance",
+        description: `You don't have enough ${symbol} to complete this transaction including gas fees.`,
         variant: "destructive"
       });
       return false;
@@ -213,34 +226,26 @@ export const useCryptoAssets = () => {
       
       if (txError) throw txError;
       
-      // 2. Update the asset balance
+      // 2. Update the asset balance (deducting both amount and gas fee)
       const { error: assetError } = await supabase
         .from('crypto_assets')
-        .update({ amount: (asset.amount - amount) })
+        .update({ amount: (asset.amount - amount - gasFee) })
         .eq('id', asset.id);
       
       if (assetError) throw assetError;
-
-      // 3. Deduct gas fee from ETH balance
-      const { error: gasError } = await supabase
-        .from('crypto_assets')
-        .update({ amount: (ethAsset.amount - gasFee) })
-        .eq('id', ethAsset.id);
       
-      if (gasError) throw gasError;
-      
-      // 4. Record gas fee as a separate transaction
+      // 3. Record gas fee as a separate transaction
       const { error: gasTxError } = await supabase
         .from('transactions')
         .insert({
           user_id: user.id,
-          symbol: 'ETH',
+          symbol: symbol.toUpperCase(),
           amount: gasFee,
           type: 'send',
           recipient_address: 'GAS_FEE',
           transaction_hash: `${transactionHash}_gas`,
           status: 'completed',
-          price_usd: ASSET_PRICES['eth']
+          price_usd: ASSET_PRICES[symbol.toLowerCase()]
         });
       
       if (gasTxError) throw gasTxError;
@@ -248,7 +253,7 @@ export const useCryptoAssets = () => {
       // Show success message
       toast({
         title: "Transaction successful",
-        description: `You've sent ${amount} ${symbol} with a gas fee of ${gasFee.toFixed(6)} ETH.`,
+        description: `You've sent ${amount} ${symbol} with a gas fee of ${gasFee.toFixed(6)} ${symbol}.`,
       });
       
       // Refresh data
