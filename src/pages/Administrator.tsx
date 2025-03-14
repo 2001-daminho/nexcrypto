@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -5,9 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pencil, Trash, X, Check, Search, LogOut } from 'lucide-react';
+import { Pencil, Trash, X, Check, Search, LogOut, PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
-import { useAuth } from '@/context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 type User = {
@@ -28,7 +28,6 @@ type Asset = {
 };
 
 const Administrator = () => {
-  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
@@ -38,8 +37,12 @@ const Administrator = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
+  const [showAddAssetDialog, setShowAddAssetDialog] = useState(false);
+  const [newAssetSymbol, setNewAssetSymbol] = useState('');
+  const [newAssetName, setNewAssetName] = useState('');
+  const [newAssetAmount, setNewAssetAmount] = useState('');
 
-  // Fetch users
+  // Fetch users - removed authentication requirement
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -116,7 +119,7 @@ const Administrator = () => {
   const handleSaveAsset = async (assetId: string) => {
     try {
       const amount = parseFloat(editAmount);
-      if (isNaN(amount) || amount < 0) {
+      if (isNaN(amount)) {
         toast({
           title: "Invalid amount",
           description: "Please enter a valid amount",
@@ -156,6 +159,68 @@ const Administrator = () => {
     }
   };
 
+  const handleAddAsset = async () => {
+    if (!selectedUser) return;
+    
+    try {
+      if (!newAssetSymbol || !newAssetName || !newAssetAmount) {
+        toast({
+          title: "Missing information",
+          description: "Please fill in all fields",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const amount = parseFloat(newAssetAmount);
+      if (isNaN(amount)) {
+        toast({
+          title: "Invalid amount",
+          description: "Please enter a valid amount",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Create a new asset for the user
+      const { error, data } = await supabase
+        .from('crypto_assets')
+        .insert({
+          user_id: selectedUser.id,
+          symbol: newAssetSymbol.toLowerCase(),
+          name: newAssetName,
+          amount,
+          image_url: `https://cryptologos.cc/logos/${newAssetSymbol.toLowerCase()}-${newAssetSymbol.toLowerCase()}-logo.png`
+        })
+        .select('*')
+        .single();
+        
+      if (error) throw error;
+      
+      toast({
+        title: "Success",
+        description: "Asset added successfully"
+      });
+      
+      // Update local state
+      setUserAssets([...userAssets, { ...data, amount: Number(data.amount) }]);
+      
+      // Reset form
+      setNewAssetSymbol('');
+      setNewAssetName('');
+      setNewAssetAmount('');
+      setShowAddAssetDialog(false);
+      
+    } catch (error) {
+      console.error('Error adding asset:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add asset",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleDeleteUser = async (userId: string) => {
     try {
       // In a real app, this would call a secure admin API endpoint
@@ -190,20 +255,13 @@ const Administrator = () => {
     user => user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="container mx-auto py-16 px-4">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-        {user && (
-          <Button variant="outline" onClick={signOut}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
-          </Button>
-        )}
+        <Button variant="outline" onClick={() => navigate('/dashboard')}>
+          Go to Dashboard
+        </Button>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -288,7 +346,17 @@ const Administrator = () => {
               <TabsContent value="assets">
                 <Card>
                   <CardHeader>
-                    <CardTitle>Assets for {selectedUser.email}</CardTitle>
+                    <CardTitle className="flex justify-between items-center">
+                      <span>Assets for {selectedUser.email}</span>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowAddAssetDialog(true)}
+                      >
+                        <PlusCircle className="h-4 w-4 mr-2" />
+                        Add Asset
+                      </Button>
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     {isLoading ? (
@@ -368,6 +436,48 @@ const Administrator = () => {
           )}
         </div>
       </div>
+      
+      {/* Add Asset Dialog */}
+      <Dialog open={showAddAssetDialog} onOpenChange={setShowAddAssetDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Asset</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="assetSymbol">Symbol</Label>
+              <Input
+                id="assetSymbol"
+                placeholder="e.g. btc, eth, sol"
+                value={newAssetSymbol}
+                onChange={(e) => setNewAssetSymbol(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="assetName">Name</Label>
+              <Input
+                id="assetName"
+                placeholder="e.g. Bitcoin, Ethereum"
+                value={newAssetName}
+                onChange={(e) => setNewAssetName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="assetAmount">Amount</Label>
+              <Input
+                id="assetAmount"
+                placeholder="0.00"
+                value={newAssetAmount}
+                onChange={(e) => setNewAssetAmount(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddAssetDialog(false)}>Cancel</Button>
+            <Button onClick={handleAddAsset}>Add Asset</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader, HelpCircle } from 'lucide-react';
+import { Loader, HelpCircle, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Auth = () => {
@@ -265,7 +265,9 @@ const Auth = () => {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
+                  <Label htmlFor="referralCode" className="flex items-center">
+                    Referral Code <Sparkles className="ml-2 h-4 w-4 text-yellow-500" />
+                  </Label>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -283,8 +285,9 @@ const Auth = () => {
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value)}
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter a valid referral code to receive a signup bonus!
+                <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                  <Sparkles className="mr-1 h-3 w-3 text-yellow-500" />
+                  Enter a valid referral code to receive a $500 signup bonus!
                 </p>
               </div>
               <Button
