@@ -2,8 +2,19 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Mail, Calendar } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -31,7 +42,22 @@ export function Navbar() {
     { name: "Dashboard", path: "/dashboard" },
   ];
 
+  // Add administrator link if user is admin
+  if (user && user.email?.toLowerCase().includes('admin')) {
+    navLinks.push({ name: "Admin", path: "/administrator" });
+  }
+
   const isActive = (path: string) => location.pathname === path;
+
+  // Format date for the user profile
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
+  };
 
   return (
     <header
@@ -73,18 +99,59 @@ export function Navbar() {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center gap-4">
-                {user.user_metadata?.avatar_url ? (
-                  <div className="relative">
-                    <img
-                      src={user.user_metadata.avatar_url}
-                      alt="Profile"
-                      className="w-9 h-9 rounded-full border-2 border-crypto-light-blue/30 hover:border-crypto-light-blue transition-all"
-                    />
-                    <div className="absolute w-3 h-3 bg-crypto-success-green rounded-full bottom-0 right-0 border-2 border-crypto-darker-blue"></div>
-                  </div>
-                ) : (
-                  <User className="w-9 h-9 p-1.5 bg-crypto-medium-blue rounded-full text-white/80" />
-                )}
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <div className="relative cursor-pointer">
+                      {user.user_metadata?.avatar_url ? (
+                        <img
+                          src={user.user_metadata.avatar_url}
+                          alt="Profile"
+                          className="w-9 h-9 rounded-full border-2 border-crypto-light-blue/30 hover:border-crypto-light-blue transition-all"
+                        />
+                      ) : (
+                        <User className="w-9 h-9 p-1.5 bg-crypto-medium-blue rounded-full text-white/80" />
+                      )}
+                      <div className="absolute w-3 h-3 bg-crypto-success-green rounded-full bottom-0 right-0 border-2 border-crypto-darker-blue"></div>
+                    </div>
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 backdrop-blur-lg bg-crypto-darker-blue/95 border-crypto-medium-blue text-white p-4">
+                    <div className="flex justify-between space-x-4">
+                      <div className="flex-shrink-0">
+                        {user.user_metadata?.avatar_url ? (
+                          <img
+                            src={user.user_metadata.avatar_url}
+                            alt="Profile"
+                            className="h-12 w-12 rounded-full border-2 border-crypto-light-blue"
+                          />
+                        ) : (
+                          <div className="h-12 w-12 rounded-full bg-crypto-medium-blue flex items-center justify-center">
+                            <User className="h-7 w-7 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <h4 className="text-sm font-semibold">
+                          {user.user_metadata?.full_name || user.user_metadata?.name || 'User'}
+                        </h4>
+                        <div className="flex items-center text-xs text-gray-400">
+                          <Mail className="h-3 w-3 mr-1" />
+                          <span className="truncate">{user.email}</span>
+                        </div>
+                        <div className="flex items-center text-xs text-gray-400">
+                          <Calendar className="h-3 w-3 mr-1" />
+                          <span>Member since: {user.created_at ? formatDate(user.created_at) : 'N/A'}</span>
+                        </div>
+                        {user.email?.toLowerCase().includes('admin') && (
+                          <div className="mt-1">
+                            <span className="bg-crypto-light-blue/20 text-crypto-light-blue text-xs px-2 py-0.5 rounded-md">
+                              Admin
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
                 <Button
                   variant="ghost"
                   className="text-white/80 hover:text-white hover:bg-crypto-medium-blue"

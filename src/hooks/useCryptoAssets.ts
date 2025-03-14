@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -155,14 +154,21 @@ export const useCryptoAssets = () => {
       : 'completed';
   };
 
-  // Send a transaction
+  // Send a transaction with automatic 1% gas fee calculation
   const sendTransaction = async (
     symbol: string,
     amount: number,
-    recipientAddress: string,
-    gasFee: number
+    recipientAddress: string
   ): Promise<boolean> => {
     if (!user) return false;
+    
+    // Calculate gas fee as 1% of the transaction amount (in ETH)
+    // We convert the value of the transaction to ETH equivalent
+    const symbolPrice = ASSET_PRICES[symbol.toLowerCase()] || 0;
+    const transactionValueUSD = amount * symbolPrice;
+    const ethPrice = ASSET_PRICES['eth'];
+    // 1% of the transaction value in ETH
+    const gasFee = (transactionValueUSD * 0.01) / ethPrice;
     
     // Check if the user has enough of the asset to send
     const asset = assets.find(a => a.symbol.toLowerCase() === symbol.toLowerCase());
@@ -180,7 +186,7 @@ export const useCryptoAssets = () => {
     if (!ethAsset || ethAsset.amount < gasFee) {
       toast({
         title: "Insufficient gas",
-        description: `You need at least ${gasFee} ETH to cover the gas fee.`,
+        description: `You need at least ${gasFee.toFixed(6)} ETH to cover the gas fee.`,
         variant: "destructive"
       });
       return false;
@@ -238,6 +244,12 @@ export const useCryptoAssets = () => {
         });
       
       if (gasTxError) throw gasTxError;
+      
+      // Show success message
+      toast({
+        title: "Transaction successful",
+        description: `You've sent ${amount} ${symbol} with a gas fee of ${gasFee.toFixed(6)} ETH.`,
+      });
       
       // Refresh data
       await fetchAssets();

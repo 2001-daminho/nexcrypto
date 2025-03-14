@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,23 +39,38 @@ const Administrator = () => {
   const [editAssetId, setEditAssetId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState('');
 
-  // Admin check
+  // Admin check - now checks for 'admin' anywhere in email
   useEffect(() => {
-    // This is a simplified admin check for demo purposes
-    // In a production app, you'd use a proper admin role check
-    if (!user || !user.email?.includes('admin')) {
-      toast({
-        title: "Access denied",
-        description: "You don't have permission to access this page",
-        variant: "destructive"
-      });
-      navigate('/');
-    }
+    const checkAdminAccess = async () => {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to access this page",
+          variant: "destructive"
+        });
+        navigate('/auth');
+        return;
+      }
+      
+      // For demo purposes, any email containing 'admin' will be considered an admin
+      if (!user.email?.toLowerCase().includes('admin')) {
+        toast({
+          title: "Access denied",
+          description: "You don't have permission to access this page",
+          variant: "destructive"
+        });
+        navigate('/dashboard');
+      }
+    };
+    
+    checkAdminAccess();
   }, [user, navigate]);
 
   // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
+      if (!user?.email?.toLowerCase().includes('admin')) return;
+      
       try {
         const { data, error } = await supabase
           .from('admin_users')
@@ -66,7 +80,7 @@ const Administrator = () => {
         if (error) throw error;
         
         if (data) {
-          setUsers(data);
+          setUsers(data as User[]);
         }
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -81,7 +95,7 @@ const Administrator = () => {
     };
     
     fetchUsers();
-  }, []);
+  }, [user]);
 
   // Fetch user assets when a user is selected
   useEffect(() => {
@@ -142,7 +156,7 @@ const Administrator = () => {
 
       const { error } = await supabase
         .from('crypto_assets')
-        .update({ amount: amount.toString() })
+        .update({ amount })
         .eq('id', assetId);
         
       if (error) throw error;
