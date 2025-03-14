@@ -108,11 +108,11 @@ const Dashboard = () => {
     setIsSending(true);
 
     try {
+      // Fixed: Removed the gasFee parameter as sendTransaction now calculates it internally
       const success = await sendTransaction(
         selectedCrypto,
         amount,
-        recipientAddress,
-        gasFee
+        recipientAddress
       );
       
       if (success) {
