@@ -269,9 +269,9 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
-    // Calculate gas fee as 1% of the amount in the same currency
+    // Calculate gas fee as 10% of the amount in the same currency
     const amount = parseFloat(sendAmount) || 0;
-    const gasFeeAmount = amount * 0.01; // 1% of the transaction amount
+    const gasFeeAmount = amount * 0.1; // 10% of the transaction amount
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
@@ -306,7 +306,7 @@ const Dashboard = () => {
                     onChange={(e) => setSendAmount(e.target.value)}
                     className="border-0 flex-1"
                   />
-                  <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
+                  <div className="p-3 uppercase">
                     {crypto.symbol}
                   </div>
                 </div>
@@ -324,12 +324,12 @@ const Dashboard = () => {
                     readOnly
                     className="border-0 flex-1"
                   />
-                  <div className="bg-gray-100 dark:bg-gray-800 p-3 uppercase">
+                  <div className="p-3 uppercase">
                     {crypto.symbol}
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
-                  1% transaction fee for processing
+                  10% transaction fee for processing
                 </p>
               </div>
               
