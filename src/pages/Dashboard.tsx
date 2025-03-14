@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -106,7 +107,6 @@ const Dashboard = () => {
     setIsSending(true);
 
     try {
-      // Fixed: Removed the gasFee parameter as sendTransaction now calculates it internally
       const success = await sendTransaction(
         selectedCrypto,
         amount,
@@ -269,8 +269,11 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
-    // Calculate gas fee as 1% of the amount in the same currency
+    // Calculate USD value
     const amount = parseFloat(sendAmount) || 0;
+    const usdValue = amount * crypto.price;
+    
+    // Calculate gas fee as 1% of the amount in the same currency
     const gasFeeAmount = amount * 0.01; // 1% of the transaction amount
 
     return (
@@ -314,6 +317,25 @@ const Dashboard = () => {
                   available: {crypto.amount} {crypto.symbol}
                 </p>
               </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium">USD Value</label>
+                <div className="flex border rounded-md overflow-hidden">
+                  <Input
+                    value={`$${usdValue.toFixed(2)}`}
+                    readOnly
+                    className="border-0 flex-1"
+                  />
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3">
+                    USD
+                  </div>
+                </div>
+                {usdValue < 1000 && (
+                  <p className="text-xs text-red-500">
+                    Minimum withdrawal is $1,000
+                  </p>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <label htmlFor="gasFee" className="text-sm font-medium">gas fee ({crypto.symbol})</label>
@@ -336,7 +358,7 @@ const Dashboard = () => {
               <Button 
                 className="w-full" 
                 onClick={handleSendTransaction}
-                disabled={isSending}
+                disabled={isSending || usdValue < 1000}
               >
                 {isSending ? (
                   <>
@@ -344,7 +366,7 @@ const Dashboard = () => {
                     sending...
                   </>
                 ) : (
-                  "send"
+                  usdValue < 1000 ? "Minimum $1,000 required" : "send"
                 )}
               </Button>
             </div>

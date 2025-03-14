@@ -1,63 +1,55 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { Loader, HelpCircle } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { supabase } from "@/integrations/supabase/client";
 
 const Auth = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
 
   useEffect(() => {
-    // If user is logged in, redirect to dashboard
-    if (user) {
+    if (user && !authLoading) {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      toast({
-        title: "Missing fields",
-        description: "Please enter both email and password",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+
       if (error) throw error;
-      
-      // Redirect to dashboard
+
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+
       navigate('/dashboard');
     } catch (error: any) {
-      console.error("Auth error:", error);
+      console.error('Error signing in:', error);
       toast({
-        title: "Authentication failed",
-        description: error.message || "There was an error during authentication",
+        title: "Sign in failed",
+        description: error.message || "There was an error signing in.",
         variant: "destructive",
       });
     } finally {
@@ -65,57 +57,41 @@ const Auth = () => {
     }
   };
 
-  const handleSignUp = async () => {
-    // Validate fields
-    if (!email || !password || !firstName || !lastName || !confirmPassword) {
-      toast({
-        title: "Missing fields",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
+
     try {
-      const { error } = await supabase.auth.signUp({
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            first_name: firstName,
-            last_name: lastName,
-            display_name: `${firstName} ${lastName}`,
-            referral_code: referralCode, // Store referral code in user metadata
+            referral_code: referralCode,
           },
         },
       });
-      
+
       if (error) throw error;
-      
+
       toast({
         title: "Account created",
-        description: referralCode 
-          ? "Your account has been created successfully with referral code! You'll receive your signup bonus soon."
-          : "Your account has been created successfully!",
+        description: "Your account has been created successfully! Check your email for verification.",
       });
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
+
+      if (referralCode) {
+        toast({
+          title: "Signup bonus applied!",
+          description: "Your referral code has been recorded. You'll receive your signup bonus soon!",
+        });
+      }
+
+      setActiveTab('signin');
     } catch (error: any) {
-      console.error("Signup error:", error);
+      console.error('Error signing up:', error);
       toast({
-        title: "Signup failed",
-        description: error.message || "There was an error during signup",
+        title: "Sign up failed",
+        description: error.message || "There was an error creating your account.",
         variant: "destructive",
       });
     } finally {
@@ -123,75 +99,93 @@ const Auth = () => {
     }
   };
 
-  if (user) {
-    return (
-      <div className="container mx-auto py-10 px-4 max-w-md font-poppins">
-        <Card>
-          <CardHeader>
-            <CardTitle>already signed in</CardTitle>
-            <CardDescription>you are already authenticated</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center">
-            {user.user_metadata?.avatar_url && (
-              <img 
-                src={user.user_metadata.avatar_url} 
-                alt="Profile" 
-                className="w-20 h-20 rounded-full mb-4"
-              />
-            )}
-            <h3 className="text-xl font-bold">{user.email}</h3>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" onClick={() => navigate('/dashboard')}>
-              go to dashboard
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: 'demo@nexcrypto.app',
+        password: 'Demo123!',
+      });
+      
+      if (error) {
+        // If login fails, try to create the demo account
+        const { error: signUpError } = await supabase.auth.signUp({
+          email: 'demo@nexcrypto.app',
+          password: 'Demo123!',
+        });
+        
+        if (signUpError) throw signUpError;
+        
+        // Try signing in again
+        await supabase.auth.signInWithPassword({
+          email: 'demo@nexcrypto.app',
+          password: 'Demo123!',
+        });
+      }
+      
+      toast({
+        title: "Demo account",
+        description: "You have been signed in with a demo account.",
+      });
+      
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error with demo login:', error);
+      toast({
+        title: "Demo login failed",
+        description: error.message || "There was an error with the demo login.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="container mx-auto py-10 px-4 max-w-md font-poppins">
-      <Tabs defaultValue="signin">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="signin">sign in</TabsTrigger>
-          <TabsTrigger value="signup">sign up</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="signin">
-          <Card>
-            <CardHeader>
-              <CardTitle>sign in</CardTitle>
-              <CardDescription>sign in to access your dashboard and manage your crypto assets.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-              <div className="space-y-4">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <CardTitle className="text-2xl font-bold">NexCrypto</CardTitle>
+          <CardDescription>
+            {activeTab === 'signin' 
+              ? "Sign in to your account to continue" 
+              : "Create an account to get started"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="signin" value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')}>
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="signin">Sign In</TabsTrigger>
+              <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="signin">
+              <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="Enter your email" 
+                    placeholder="Your email" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                  </div>
                   <Input 
                     id="password" 
                     type="password" 
-                    placeholder="Enter your password" 
+                    placeholder="Your password" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
-                <Button 
-                  onClick={handleSignIn} 
-                  disabled={loading}
-                  className="w-full"
-                >
+                <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? (
                     <>
                       <Loader className="mr-2 h-4 w-4 animate-spin" />
@@ -201,110 +195,81 @@ const Auth = () => {
                     "Sign In"
                   )}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="signup">
-          <Card>
-            <CardHeader>
-              <CardTitle>sign up</CardTitle>
-              <CardDescription>create an account to start using our services.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              </form>
+            </TabsContent>
+            
+            <TabsContent value="signup">
+              <form onSubmit={handleSignUp} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    placeholder="Enter your first name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input 
+                    id="signup-email" 
+                    type="email" 
+                    placeholder="Your email" 
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    placeholder="Enter your last name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input 
+                    id="signup-password" 
+                    type="password" 
+                    placeholder="Create a password" 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signupEmail">Email</Label>
-                <Input
-                  id="signupEmail"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signupPassword">Password</Label>
-                <Input
-                  id="signupPassword"
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="referralCode">Referral Code (Optional)</Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle size={16} className="text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Enter a referral code to receive signup bonus</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                <div className="space-y-2">
+                  <Label htmlFor="referral-code">Referral Code (Optional)</Label>
+                  <Input 
+                    id="referral-code" 
+                    type="text" 
+                    placeholder="Enter referral code" 
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter a referral code to receive signup bonus!
+                  </p>
                 </div>
-                <Input
-                  id="referralCode"
-                  placeholder="Enter referral code if you have one"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Enter a valid referral code to receive a signup bonus!
-                </p>
-              </div>
-              <Button
-                onClick={handleSignUp}
-                disabled={loading}
-                className="w-full mt-4"
-              >
-                {loading ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-300"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-background text-muted-foreground">or</span>
+            </div>
+          </div>
+          
+          <Button variant="outline" className="w-full" onClick={handleDemoLogin} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader className="mr-2 h-4 w-4 animate-spin" />
+                Loading demo...
+              </>
+            ) : (
+              "Try Demo Account"
+            )}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };

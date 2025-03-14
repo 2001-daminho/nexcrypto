@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,26 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      // For the demo app, we're using a magic link to sign in
-      // This simplifies the authentication process for the demo
-      // In a real app, you'd use a more robust auth flow
-      
-      // First try Google OAuth (since this is most reliable for demo)
-      try {
-        const { error } = await supabase.auth.signInWithOAuth({
-          provider: 'google',
-          options: {
-            redirectTo: `${window.location.origin}/dashboard`,
-          },
-        });
-        
-        if (!error) return;
-        
-        // If Google OAuth failed, try email/password auth with demo account
-        console.log("Google OAuth failed, trying demo account");
-      } catch (e) {
-        console.error("OAuth error:", e);
-      }
+      // Modified: Skip Google OAuth and go straight to email/password
+      // to avoid the provider not enabled error
       
       // Fallback to demo account using email/password
       const { error } = await supabase.auth.signInWithPassword({
