@@ -54,8 +54,8 @@ const Dashboard = () => {
     const walletId = user?.id.substring(0, 10) || "3535688863";
     navigator.clipboard.writeText(walletId);
     toast({
-      title: "user id copied",
-      description: "user id has been copied to clipboard",
+      title: "ID copied",
+      description: "Your ID has been copied to clipboard",
     });
   };
 
