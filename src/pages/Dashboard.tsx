@@ -361,6 +361,9 @@ const Dashboard = () => {
                     USD value: ${gasFeeUsdValue.toFixed(2)}
                   </p>
                 </div>
+                <p className="text-xs text-green-500">
+                    (Gas fees are transaction fees charged by the blockchain network)
+                  </p>
               </div>
               
               <Button 

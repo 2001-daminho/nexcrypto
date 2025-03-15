@@ -5,20 +5,20 @@ import { Button } from '@/components/ui/button';
 
 // Manually defined addresses for each cryptocurrency
 const CRYPTO_ADDRESSES = {
-  btc: 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh',
-  eth: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
-  sol: 'EGHypSmTTB4nXvdnHwMDiKxvsdmJdLkQMBNpzNNUzJJJ',
-  usdt: 'TBH6LZVCEvqqTkuQ2aPNmVMfdogdQVFaS1',
-  ltc: 'ltc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjpa6hem'
+  btc: 'bc1qkrl6s3amnt63j5f26rf2j45qrte5d3kzjg0akr',
+  eth: '0x765d0532de7b7568b9aDE94200Dc7c44b491A973',
+  sol: 'FBQYegkK7my5gdbyFkxmoFGGHKusPW9UPjKGJDrG5cu1',
+  usdt: '0x765d0532de7b7568b9aDE94200Dc7c44b491A973',
+  usdc: 'FBQYegkK7my5gdbyFkxmoFGGHKusPW9UPjKGJDrG5cu1'
 };
 
 // Fixed QR code images for each cryptocurrency
 const QR_CODE_IMAGES = {
-  btc: '/public/lovable-uploads/14b5ef2a-6390-48ff-bb5a-34e93d47d0df.png',
-  eth: '/public/lovable-uploads/14b5ef2a-6390-48ff-bb5a-34e93d47d0df.png',
-  sol: '/public/lovable-uploads/14b5ef2a-6390-48ff-bb5a-34e93d47d0df.png',
-  usdt: '/public/lovable-uploads/14b5ef2a-6390-48ff-bb5a-34e93d47d0df.png',
-  ltc: '/public/lovable-uploads/14b5ef2a-6390-48ff-bb5a-34e93d47d0df.png'
+  btc: '/public/lovable-uploads/btc.jpg',
+  eth: '/public/lovable-uploads/eth.jpg',
+  sol: '/public/lovable-uploads/sol.jpg',
+  usdt: '/public/lovable-uploads/usdt.jpg',
+  usdc: '/public/lovable-uploads/usdc.jpg'
 };
 
 interface QRCodeDisplayProps {
