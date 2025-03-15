@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -93,7 +94,8 @@ export const useCryptoAssets = () => {
           return {
             ...asset,
             symbol: 'usdc',
-            name: 'USD Coin'
+            name: 'USD Coin',
+            image_url: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
           };
         }
         return asset;
@@ -103,11 +105,19 @@ export const useCryptoAssets = () => {
         const symbol = asset.symbol.toLowerCase();
         const price = marketPrices[symbol] || 0;
         const value = Number(asset.amount) * price;
+        
+        // Ensure USDC always has the correct logo
+        let imageUrl = asset.image_url;
+        if (symbol === 'usdc') {
+          imageUrl = 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png';
+        }
+        
         return {
           ...asset,
           price,
           value,
-          amount: Number(asset.amount)
+          amount: Number(asset.amount),
+          image_url: imageUrl
         };
       });
 

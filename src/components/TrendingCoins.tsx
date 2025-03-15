@@ -11,7 +11,17 @@ export function TrendingCoins() {
     const getTrendingCoins = async () => {
       try {
         const data = await fetchTrendingCoins();
-        setTrendingCoins(data);
+        // Make sure USDC uses the correct image
+        const updatedData = data.map(coin => {
+          if (coin.symbol.toLowerCase() === 'usdc') {
+            return {
+              ...coin,
+              image: 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+            };
+          }
+          return coin;
+        });
+        setTrendingCoins(updatedData);
       } catch (error) {
         console.error("Error fetching trending coins:", error);
       } finally {

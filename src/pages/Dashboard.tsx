@@ -192,6 +192,11 @@ const Dashboard = () => {
   if (selectedView === 'detail' && selectedCrypto) {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
+    
+    // Special case for USDC to use the specific logo
+    const imageUrl = crypto.symbol.toLowerCase() === 'usdc' 
+      ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+      : crypto.image_url || '';
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
@@ -205,7 +210,7 @@ const Dashboard = () => {
             {/* We'll replace this with real price change data when available */}
             0.00%
           </div>
-          <img src={crypto.image_url || ''} alt={crypto.name} className="w-24 h-24 mb-4" />
+          <img src={imageUrl} alt={crypto.name} className="w-24 h-24 mb-4" />
           <h1 className="text-3xl font-bold mb-1">${crypto.value.toFixed(2)}</h1>
           <p className="text-gray-500">{crypto.amount} ({crypto.symbol})</p>
           
@@ -241,6 +246,11 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
     
+    // Special case for USDC to use the specific logo
+    const imageUrl = crypto.symbol.toLowerCase() === 'usdc' 
+      ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+      : crypto.image_url || '';
+    
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
         <Button variant="ghost" onClick={handleBack} className="mb-6 hover:bg-transparent pl-0">
@@ -249,14 +259,14 @@ const Dashboard = () => {
         </Button>
 
         <div className="flex flex-col items-center justify-center mb-8">
-          <img src={crypto.image_url || ''} alt={crypto.name} className="w-20 h-20 mb-4" />
+          <img src={imageUrl} alt={crypto.name} className="w-20 h-20 mb-4" />
           <h2 className="text-2xl font-bold mb-6">{crypto.symbol}</h2>
           
           <QRCodeDisplay
             cryptoSymbol={crypto.symbol}
             cryptoName={crypto.name}
             onCopyAddress={handleCopyAddress}
-            imageUrl={crypto.image_url || ''}
+            imageUrl={imageUrl}
           />
         </div>
       </div>
