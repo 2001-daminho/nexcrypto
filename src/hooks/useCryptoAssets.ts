@@ -57,9 +57,9 @@ export const useCryptoAssets = () => {
       
       // Make sure we have prices for our assets (add fallbacks)
       const fallbackPrices = {
-        'btc': 61324.36,
+        'btc': 84354.83,
         'eth': 3213.25,
-        'sol': 156.78,
+        'sol': 133.6,
         'usdt': 1.00,
         'usdc': 1.00
       };
