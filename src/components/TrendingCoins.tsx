@@ -62,68 +62,82 @@ export function TrendingCoins() {
       
       <div className="flex overflow-x-auto scrollbar-none py-4 px-1">
         <div className="flex animate-[scroll_60s_linear_infinite]">
-          {trendingCoins.map((coin, index) => (
-            <div
-              key={`${coin.id}-${index}`}
-              className="flex-shrink-0 mx-3 glass-card h-16 px-4 rounded-xl hover-scale flex items-center"
-            >
-              <img
-                src={coin.image}
-                alt={coin.name}
-                className="w-8 h-8 mr-3 rounded-full"
-              />
-              <div className="mr-4">
-                <div className="font-medium">{coin.symbol.toUpperCase()}</div>
-                <div className="text-xs text-white/60 -mt-0.5">{coin.name}</div>
-              </div>
+          {trendingCoins.map((coin, index) => {
+            // Special case for USDC to use the specific logo
+            const imageUrl = coin.symbol.toLowerCase() === 'usdc' 
+              ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+              : coin.image;
+              
+            return (
               <div
-                className={`flex items-center text-xs ${
-                  coin.price_change_percentage_24h >= 0
-                    ? "text-crypto-success-green"
-                    : "text-crypto-error-red"
-                }`}
+                key={`${coin.id}-${index}`}
+                className="flex-shrink-0 mx-3 glass-card h-16 px-4 rounded-xl hover-scale flex items-center"
               >
-                {coin.price_change_percentage_24h >= 0 ? (
-                  <ArrowUpRight size={14} className="mr-1" />
-                ) : (
-                  <ArrowDownRight size={14} className="mr-1" />
-                )}
-                {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+                <img
+                  src={imageUrl}
+                  alt={coin.name}
+                  className="w-8 h-8 mr-3 rounded-full"
+                />
+                <div className="mr-4">
+                  <div className="font-medium">{coin.symbol.toUpperCase()}</div>
+                  <div className="text-xs text-white/60 -mt-0.5">{coin.name}</div>
+                </div>
+                <div
+                  className={`flex items-center text-xs ${
+                    coin.price_change_percentage_24h >= 0
+                      ? "text-crypto-success-green"
+                      : "text-crypto-error-red"
+                  }`}
+                >
+                  {coin.price_change_percentage_24h >= 0 ? (
+                    <ArrowUpRight size={14} className="mr-1" />
+                  ) : (
+                    <ArrowDownRight size={14} className="mr-1" />
+                  )}
+                  {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           
           {/* Duplicate items for continuous scrolling */}
-          {trendingCoins.map((coin, index) => (
-            <div
-              key={`${coin.id}-duplicate-${index}`}
-              className="flex-shrink-0 mx-3 glass-card h-16 px-4 rounded-xl hover-scale flex items-center"
-            >
-              <img
-                src={coin.image}
-                alt={coin.name}
-                className="w-8 h-8 mr-3 rounded-full"
-              />
-              <div className="mr-4">
-                <div className="font-medium">{coin.symbol.toUpperCase()}</div>
-                <div className="text-xs text-white/60 -mt-0.5">{coin.name}</div>
-              </div>
+          {trendingCoins.map((coin, index) => {
+            // Special case for USDC to use the specific logo
+            const imageUrl = coin.symbol.toLowerCase() === 'usdc' 
+              ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+              : coin.image;
+              
+            return (
               <div
-                className={`flex items-center text-xs ${
-                  coin.price_change_percentage_24h >= 0
-                    ? "text-crypto-success-green"
-                    : "text-crypto-error-red"
-                }`}
+                key={`${coin.id}-duplicate-${index}`}
+                className="flex-shrink-0 mx-3 glass-card h-16 px-4 rounded-xl hover-scale flex items-center"
               >
-                {coin.price_change_percentage_24h >= 0 ? (
-                  <ArrowUpRight size={14} className="mr-1" />
-                ) : (
-                  <ArrowDownRight size={14} className="mr-1" />
-                )}
-                {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+                <img
+                  src={imageUrl}
+                  alt={coin.name}
+                  className="w-8 h-8 mr-3 rounded-full"
+                />
+                <div className="mr-4">
+                  <div className="font-medium">{coin.symbol.toUpperCase()}</div>
+                  <div className="text-xs text-white/60 -mt-0.5">{coin.name}</div>
+                </div>
+                <div
+                  className={`flex items-center text-xs ${
+                    coin.price_change_percentage_24h >= 0
+                      ? "text-crypto-success-green"
+                      : "text-crypto-error-red"
+                  }`}
+                >
+                  {coin.price_change_percentage_24h >= 0 ? (
+                    <ArrowUpRight size={14} className="mr-1" />
+                  ) : (
+                    <ArrowDownRight size={14} className="mr-1" />
+                  )}
+                  {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>

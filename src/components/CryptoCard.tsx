@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +47,6 @@ export function CryptoCard({ coin }: CryptoCardProps) {
   };
 
   const handleCopyAddress = () => {
-    // Generate a sample wallet address based on the coin's name
     const dummyAddress = `${coin.symbol.toLowerCase()}1${coin.id
       .split("")
       .map((c) => c.charCodeAt(0).toString(16))
@@ -63,7 +61,6 @@ export function CryptoCard({ coin }: CryptoCardProps) {
   };
 
   const handleConnect = () => {
-    // In a real app, this would open a wallet connection modal
     toast({
       title: "Connect wallet",
       description: "This would open a wallet connection flow",
@@ -71,19 +68,22 @@ export function CryptoCard({ coin }: CryptoCardProps) {
   };
 
   const handleSend = () => {
-    // In a real app, this would open a send transaction modal
     toast({
       title: "Send coins",
       description: "This would open a transaction form",
     });
   };
 
+  const imageUrl = coin.symbol.toLowerCase() === 'usdc' 
+    ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+    : coin.image;
+
   return (
     <div className="crypto-card overflow-hidden">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <img
-            src={coin.image}
+            src={imageUrl}
             alt={coin.name}
             className="w-10 h-10 rounded-full"
           />

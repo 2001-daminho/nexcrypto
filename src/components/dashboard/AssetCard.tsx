@@ -9,6 +9,11 @@ interface AssetCardProps {
 }
 
 export const AssetCard: React.FC<AssetCardProps> = ({ crypto, onClick }) => {
+  // Special case for USDC to use the specific logo
+  const imageUrl = crypto.symbol.toLowerCase() === 'usdc' 
+    ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
+    : crypto.image_url || '';
+
   return (
     <Card 
       className="hover:border-crypto-light-blue/20 transition-all cursor-pointer"
@@ -17,7 +22,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({ crypto, onClick }) => {
       <CardContent className="p-4">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <img src={crypto.image_url || ''} alt={crypto.name} className="w-12 h-12 rounded-full" />
+            <img src={imageUrl} alt={crypto.name} className="w-12 h-12 rounded-full" />
             <div>
               <div className="font-bold">${crypto.price.toLocaleString()}</div>
               <div className="text-sm text-white/70">{crypto.name}</div>
