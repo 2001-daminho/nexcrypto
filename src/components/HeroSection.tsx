@@ -62,7 +62,7 @@ export function HeroSection() {
           </Link>
           <Link to="/dashboard">
             <Button variant="outline" className="h-12 px-8 text-base border-white/20 text-white hover:bg-white/5">
-              View Dashboard
+              Claim Reward
             </Button>
           </Link>
         </div>
