@@ -281,13 +281,13 @@ const Auth = () => {
                 </div>
                 <Input
                   id="referralCode"
-                  placeholder="Enter referral code if you have one"
+                  placeholder="Enter referral code"
                   value={referralCode}
                   onChange={(e) => setReferralCode(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground mt-1 flex items-center">
                   <Sparkles className="mr-1 h-3 w-3 text-yellow-500" />
-                  Enter a valid referral code to receive a $500 signup bonus!
+                  Enter a valid referral code to receive your signup bonus!
                 </p>
               </div>
               <Button
