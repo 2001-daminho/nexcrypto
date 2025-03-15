@@ -10,7 +10,7 @@ interface AssetCardProps {
 
 export const AssetCard: React.FC<AssetCardProps> = ({ crypto, onClick }) => {
   // Special case for USDC to use the specific logo
-  const imageUrl = crypto.symbol.toLowerCase() === 'usdc' 
+  const imageUrl = crypto.symbol.toLowerCase() === 'usdc'
     ? 'https://cryptologos.cc/logos/usd-coin-usdc-logo.png'
     : crypto.image_url || '';
 
