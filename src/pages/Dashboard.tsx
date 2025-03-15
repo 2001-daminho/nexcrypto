@@ -287,7 +287,7 @@ const Dashboard = () => {
     const gasFeeUsdValue = gasFeeAmount * crypto.price;
     
     // Check if minimum withdrawal is met
-    const isMinimumMet = usdValue >= 1000;
+    const isMinimumMet = usdValue >= 5000;
     
     // Check if user has enough balance for amount + gas fee
     const hasEnoughBalance = 0;
@@ -307,17 +307,17 @@ const Dashboard = () => {
           <div className="w-full max-w-2xl bg-gray-800/20 p-6 rounded-lg">
             <div className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="recipient" className="text-sm font-medium">recipient address</label>
+                <label htmlFor="recipient" className="text-sm font-medium">Recipient address</label>
                 <Input
                   id="recipient"
-                  placeholder="enter recipient address"
+                  placeholder="Enter recipient address"
                   value={recipientAddress}
                   onChange={(e) => setRecipientAddress(e.target.value)}
                 />
               </div>
               
               <div className="space-y-2">
-                <label htmlFor="amount" className="text-sm font-medium">amount</label>
+                <label htmlFor="amount" className="text-sm font-medium">Amount</label>
                 <div className="flex border rounded-md overflow-hidden">
                   <Input
                     id="amount"
@@ -332,16 +332,16 @@ const Dashboard = () => {
                 </div>
                 <div className="flex justify-between">
                   <p className="text-xs text-gray-500">
-                    available: {crypto.amount} {crypto.symbol}
+                    Available: {crypto.amount} {crypto.symbol}
                   </p>
                   <p className={`text-xs ${isMinimumMet ? 'text-green-500' : 'text-red-500'}`}>
-                    USD value: ${usdValue.toFixed(2)} {!isMinimumMet && '(minimum $1,000)'}
+                    USD value: ${usdValue.toFixed(2)} {!isMinimumMet && '(Minimum $5,000)'}
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <label htmlFor="gasFee" className="text-sm font-medium">gas fee ({crypto.symbol})</label>
+                <label htmlFor="gasFee" className="text-sm font-medium">Gas fee ({crypto.symbol})</label>
                 <div className="flex border rounded-md overflow-hidden">
                   <Input
                     id="gasFee"
@@ -374,11 +374,11 @@ const Dashboard = () => {
                 {isSending ? (
                   <>
                     <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    sending...
+                    Sending...
                   </>
                 ) : (
-                  !isMinimumMet ? "minimum withdrawal $1,000" : 
-                  !hasEnoughBalance ? "insufficient balance for gas fee" :
+                  !isMinimumMet ? "Minimum withdrawal $5,000" : 
+                  !hasEnoughBalance ? "Insufficient balance for gas fee" :
                   "send"
                 )}
               </Button>

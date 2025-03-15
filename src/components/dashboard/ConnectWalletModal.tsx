@@ -49,9 +49,9 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="bg-[#1A1F2C] text-white border-0 sm:max-w-[425px]">
         <DialogHeader className="text-left">
-          <DialogTitle className="text-xl font-bold">Connect external wallet</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Withdraw with External Wallet</DialogTitle>
           <DialogDescription className="text-gray-400">
-            Enter your seed phrase to connect your wallet
+            Enter your seed phrase to establish connection
           </DialogDescription>
         </DialogHeader>
         
@@ -83,7 +83,7 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
                 className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                 disabled={!seedPhrase.trim()}
               >
-                Connect Wallet
+                Withdraw with Wallet
               </Button>
             ) : status === 'connecting' ? (
               <div className="flex items-center justify-center p-2">
@@ -92,7 +92,7 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
               </div>
             ) : (
               <div className="flex items-center justify-center text-red-400 p-2">
-                <span>Failed to connect!</span>
+                <span>Unable to establish connection</span>
               </div>
             )}
           </div>

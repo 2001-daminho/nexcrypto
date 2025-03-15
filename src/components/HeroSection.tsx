@@ -55,13 +55,13 @@ export function HeroSection() {
         
         <div className="animate-on-scroll opacity-0 flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
           <Link to="/markets">
-            <Button className="button-glow h-12 px-8 text-base bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90 text-white flex items-center gap-2">
-              Get Started
+            <Button variant="outline" className="h-12 px-8 text-base border-white/20 text-white hover:bg-white/5">
+              Tradable Assets
               <ArrowRight size={18} />
             </Button>
           </Link>
           <Link to="/dashboard">
-            <Button variant="outline" className="h-12 px-8 text-base border-white/20 text-white hover:bg-white/5">
+            <Button  className="h-12 px-8 text-base bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90 text-white flex items-center gap-2">
               Claim Reward
             </Button>
           </Link>

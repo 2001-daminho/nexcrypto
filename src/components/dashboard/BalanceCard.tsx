@@ -40,7 +40,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
             onClick={() => setIsModalOpen(true)}
           >
             <Wallet className="mr-2 h-4 w-4" />
-            connect wallet
+            Withdraw with External Wallet
           </Button>
         </CardHeader>
         <CardContent>
