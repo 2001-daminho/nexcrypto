@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -147,6 +146,14 @@ const Administrator = () => {
         return;
       }
 
+      // Find the asset being edited
+      const asset = userAssets.find(a => a.id === assetId);
+      if (!asset) return;
+
+      // Check if the amount is being increased (credited)
+      const isIncrease = amount > asset.amount;
+      
+      // Update the asset in the database
       const { error } = await supabase
         .from('crypto_assets')
         .update({ amount })
@@ -154,9 +161,30 @@ const Administrator = () => {
         
       if (error) throw error;
       
+      // If this is an account credit (increased amount), create a notification
+      if (isIncrease) {
+        const amountAdded = amount - asset.amount;
+        const { error: notificationError } = await supabase
+          .from('transactions')
+          .insert({
+            user_id: asset.user_id,
+            symbol: asset.symbol,
+            amount: amountAdded,
+            type: 'receive',
+            status: 'completed',
+            recipient_address: 'ADMIN_CREDIT',
+            transaction_hash: `admin_credit_${Date.now()}`,
+            price_usd: 0 // We don't have the price here, but it's not critical
+          });
+          
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        }
+      }
+      
       toast({
         title: "Success",
-        description: "Asset balance updated successfully"
+        description: `Asset balance ${isIncrease ? 'credited' : 'updated'} successfully`
       });
       
       // Update local state
