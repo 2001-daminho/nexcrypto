@@ -280,7 +280,8 @@ const Dashboard = () => {
     const isMinimumMet = usdValue >= 1000;
     
     // Check if user has enough balance for amount + gas fee
-    const hasEnoughBalance = amount + gasFeeAmount <= crypto.amount;
+    const hasEnoughBalance = 0;
+    // const hasEnoughBalance = amount + gasFeeAmount <= crypto.amount;
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
