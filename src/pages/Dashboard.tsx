@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -269,11 +268,6 @@ const Dashboard = () => {
     const crypto = assets.find(c => c.symbol === selectedCrypto);
     if (!crypto) return null;
 
-<<<<<<< HEAD
-    // Calculate gas fee as 10% of the amount in the same currency
-    const amount = parseFloat(sendAmount) || 0;
-    const gasFeeAmount = amount * 0.1; // 10% of the transaction amount
-=======
     // Calculate USD value
     const amount = parseFloat(sendAmount) || 0;
     const usdValue = amount * crypto.price;
@@ -284,7 +278,9 @@ const Dashboard = () => {
     
     // Check if minimum withdrawal is met
     const isMinimumMet = usdValue >= 1000;
->>>>>>> fec64bf48f0877c6284823270ecf5947142417c3
+    
+    // Check if user has enough balance for amount + gas fee
+    const hasEnoughBalance = amount + gasFeeAmount <= crypto.amount;
 
     return (
       <div className="container mx-auto py-10 px-4 font-poppins">
@@ -346,11 +342,6 @@ const Dashboard = () => {
                     {crypto.symbol}
                   </div>
                 </div>
-<<<<<<< HEAD
-                <p className="text-xs text-gray-500">
-                  10% transaction fee for processing
-                </p>
-=======
                 <div className="flex justify-between">
                   <p className="text-xs text-gray-500">
                     10% transaction fee
@@ -359,13 +350,12 @@ const Dashboard = () => {
                     USD value: ${gasFeeUsdValue.toFixed(2)}
                   </p>
                 </div>
->>>>>>> fec64bf48f0877c6284823270ecf5947142417c3
               </div>
               
               <Button 
                 className="w-full" 
                 onClick={handleSendTransaction}
-                disabled={isSending || !isMinimumMet}
+                disabled={isSending || !isMinimumMet || !hasEnoughBalance}
               >
                 {isSending ? (
                   <>
@@ -373,7 +363,9 @@ const Dashboard = () => {
                     sending...
                   </>
                 ) : (
-                  isMinimumMet ? "send" : "minimum withdrawal $1,000"
+                  !isMinimumMet ? "minimum withdrawal $1,000" : 
+                  !hasEnoughBalance ? "insufficient balance for gas fee" :
+                  "send"
                 )}
               </Button>
             </div>

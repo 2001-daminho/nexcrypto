@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { fetchTopCryptos } from '@/services/cryptoService';
 
 export type TransactionType = 'receive' | 'send' | 'buy' | 'sell';
 export type TransactionStatus = 'pending' | 'completed' | 'failed';
@@ -43,15 +43,36 @@ export const useCryptoAssets = () => {
   const [totalBalance, setTotalBalance] = useState(0);
   const [todayIncome, setTodayIncome] = useState(0);
   const [todayExpense, setTodayExpense] = useState(0);
+  const [marketPrices, setMarketPrices] = useState<Record<string, number>>({});
 
-  // Asset price simulation - updated to use real-time prices
-  // In a real app, this would come from an API
-  const ASSET_PRICES: Record<string, number> = {
-    'btc': 61324.36,
-    'eth': 3213.25,
-    'sol': 156.78,
-    'usdt': 1.00,
-    'usdc': 1.00 // Added USDC (replacing Litecoin)
+  // Fetch real-time market prices
+  const fetchMarketPrices = async () => {
+    try {
+      const cryptoData = await fetchTopCryptos(1, 100);
+      const prices: Record<string, number> = {};
+      
+      cryptoData.forEach((crypto: any) => {
+        prices[crypto.symbol.toLowerCase()] = crypto.current_price;
+      });
+      
+      // Make sure we have prices for our assets (add fallbacks)
+      const fallbackPrices = {
+        'btc': 61324.36,
+        'eth': 3213.25,
+        'sol': 156.78,
+        'usdt': 1.00,
+        'usdc': 1.00
+      };
+      
+      // Merge real-time prices with fallbacks
+      setMarketPrices({
+        ...fallbackPrices,
+        ...prices
+      });
+      
+    } catch (error) {
+      console.error('Error fetching market prices:', error);
+    }
   };
 
   const fetchAssets = async () => {
@@ -80,7 +101,7 @@ export const useCryptoAssets = () => {
 
       const assetsWithPrice = updatedData.map(asset => {
         const symbol = asset.symbol.toLowerCase();
-        const price = ASSET_PRICES[symbol] || 0;
+        const price = marketPrices[symbol] || 0;
         const value = Number(asset.amount) * price;
         return {
           ...asset,
@@ -178,7 +199,7 @@ export const useCryptoAssets = () => {
     if (!user) return false;
     
     // Get the USD value of the transaction
-    const symbolPrice = ASSET_PRICES[symbol.toLowerCase()] || 0;
+    const symbolPrice = marketPrices[symbol.toLowerCase()] || 0;
     const transactionValueUSD = amount * symbolPrice;
     
     // Check if the USD value is at least $1,000
@@ -199,7 +220,7 @@ export const useCryptoAssets = () => {
     if (!asset || asset.amount < (amount + gasFee)) {
       toast({
         title: "Insufficient balance",
-        description: `You don't have enough ${symbol} to complete this transaction including gas fees.`,
+        description: `You don't have enough ${symbol} to cover the gas fee.`,
         variant: "destructive"
       });
       return false;
@@ -220,7 +241,7 @@ export const useCryptoAssets = () => {
           recipient_address: recipientAddress,
           transaction_hash: transactionHash,
           status: 'completed',
-          price_usd: ASSET_PRICES[symbol.toLowerCase()],
+          price_usd: marketPrices[symbol.toLowerCase()],
           gas_fee: gasFee
         });
       
@@ -245,7 +266,7 @@ export const useCryptoAssets = () => {
           recipient_address: 'GAS_FEE',
           transaction_hash: `${transactionHash}_gas`,
           status: 'completed',
-          price_usd: ASSET_PRICES[symbol.toLowerCase()]
+          price_usd: marketPrices[symbol.toLowerCase()]
         });
       
       if (gasTxError) throw gasTxError;
@@ -273,12 +294,24 @@ export const useCryptoAssets = () => {
   };
 
   useEffect(() => {
-    if (user) {
+    // Fetch market prices first
+    fetchMarketPrices();
+    
+    // Set up interval to refresh market prices every minute
+    const marketPriceInterval = setInterval(fetchMarketPrices, 60000);
+    
+    return () => {
+      clearInterval(marketPriceInterval);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (user && Object.keys(marketPrices).length > 0) {
       setLoading(true);
       Promise.all([fetchAssets(), fetchTransactions()])
         .finally(() => setLoading(false));
     }
-  }, [user]);
+  }, [user, marketPrices]);
 
   // Subscribe to real-time updates when component mounts
   useEffect(() => {
@@ -321,6 +354,7 @@ export const useCryptoAssets = () => {
     todayExpense,
     sendTransaction,
     refreshData: () => {
+      fetchMarketPrices();
       fetchAssets();
       fetchTransactions();
     }

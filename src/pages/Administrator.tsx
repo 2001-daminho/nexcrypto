@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pencil, Trash, X, Check, Search, LogOut, PlusCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
+import { Label } from '@/components/ui/label';
 
 type User = {
   id: string;
@@ -46,12 +47,30 @@ const Administrator = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const { data, error } = await supabase
+        // First try to fetch from admin_users table
+        let { data, error } = await supabase
           .from('admin_users')
           .select('id, email, created_at')
           .order('created_at', { ascending: false });
           
-        if (error) throw error;
+        if (error || !data || data.length === 0) {
+          // If no admin users or error, fetch from auth.users via profiles
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, display_name')
+            .order('created_at', { ascending: false });
+            
+          if (profilesError) throw profilesError;
+          
+          if (profiles) {
+            // Format profiles to match User type
+            data = profiles.map(profile => ({
+              id: profile.id,
+              email: profile.display_name || 'User',
+              created_at: new Date().toISOString()
+            }));
+          }
+        }
         
         if (data) {
           setUsers(data as User[]);
@@ -223,24 +242,11 @@ const Administrator = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // In a real app, this would call a secure admin API endpoint
-      // that handles user deletion and all associated data
-      const { error } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (error) throw error;
-      
+      // This will now just show a message since we can't delete users without admin rights
       toast({
-        title: "Success",
-        description: "User deleted successfully"
+        title: "Information",
+        description: "User deletion requires admin privileges and is disabled in this demo",
       });
-      
-      // Update local state
-      setUsers(users.filter(u => u.id !== userId));
-      if (selectedUser?.id === userId) {
-        setSelectedUser(null);
-        setUserAssets([]);
-      }
-      
     } catch (error) {
       console.error('Error deleting user:', error);
       toast({
