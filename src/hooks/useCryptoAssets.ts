@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -45,6 +44,7 @@ export const useCryptoAssets = () => {
   const [todayIncome, setTodayIncome] = useState(0);
   const [todayExpense, setTodayExpense] = useState(0);
   const [marketPrices, setMarketPrices] = useState<Record<string, number>>({});
+  const [recentTransactions, setRecentTransactions] = useState<Record<string, boolean>>({});
 
   // Fetch real-time market prices
   const fetchMarketPrices = async () => {
@@ -179,6 +179,23 @@ export const useCryptoAssets = () => {
       
       setTodayIncome(income);
       setTodayExpense(expense);
+
+      // Check for recent transactions (within the last 5 minutes)
+      const fiveMinutesAgo = new Date();
+      fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+      
+      // Create a mapping of recently credited assets
+      const recentTxs: Record<string, boolean> = {};
+      typedTransactions.forEach(tx => {
+        if (tx.type === 'receive' && tx.recipient_address === 'ADMIN_CREDIT') {
+          const txDate = new Date(tx.created_at);
+          if (txDate > fiveMinutesAgo) {
+            recentTxs[tx.symbol.toLowerCase()] = true;
+          }
+        }
+      });
+      
+      setRecentTransactions(recentTxs);
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
@@ -367,6 +384,7 @@ export const useCryptoAssets = () => {
       fetchMarketPrices();
       fetchAssets();
       fetchTransactions();
-    }
+    },
+    recentTransactions // Export the recent transactions
   };
 };
