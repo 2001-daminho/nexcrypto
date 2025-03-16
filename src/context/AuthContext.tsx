@@ -34,26 +34,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Initialize session from supabase - only once
-    const initializeAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    // Initialize session from supabase
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      
-      // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
-        (_event, session) => {
-          setSession(session);
-          setUser(session?.user ?? null);
-          setLoading(false);
-        }
-      );
-      
-      return () => subscription.unsubscribe();
-    };
-    
-    initializeAuth();
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const signIn = async () => {
@@ -61,18 +58,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       
       // For the demo app, we're using a direct email/password sign in
-      const validEmail = 'demo@example.com'; // Changed to a valid domain
+      // We've removed the Google OAuth attempt that was causing the error
       
       // Use email/password auth with demo account
       const { error } = await supabase.auth.signInWithPassword({
-        email: validEmail,
+        email: 'demo@nexcrypto.app',
         password: 'Demo123!',
       });
       
       if (error) {
         // If demo account login failed, try to create it
         const { error: signUpError } = await supabase.auth.signUp({
-          email: validEmail,
+          email: 'demo@nexcrypto.app',
           password: 'Demo123!',
           options: {
             data: {
