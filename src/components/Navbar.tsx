@@ -59,6 +59,12 @@ export function Navbar() {
     }).format(date);
   };
 
+  // Handler function for sign in button
+  const handleSignIn = () => {
+    // Navigate to auth page instead of directly calling signIn
+    window.location.href = "/auth";
+  };
+
   return (
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -155,7 +161,7 @@ export function Navbar() {
                 <Button
                   variant="ghost"
                   className="text-white/80 hover:text-white hover:bg-crypto-medium-blue"
-                  onClick={signOut}
+                  onClick={() => signOut()}
                 >
                   Sign Out
                 </Button>
@@ -163,7 +169,7 @@ export function Navbar() {
             ) : (
               <Button
                 className="bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90 button-glow text-white"
-                onClick={signIn}
+                onClick={handleSignIn}
               >
                 Sign In
               </Button>
@@ -220,7 +226,7 @@ export function Navbar() {
                   <Button 
                     variant="ghost" 
                     className="text-white/80 hover:text-white text-sm px-3 py-1"
-                    onClick={signOut}
+                    onClick={() => signOut()}
                   >
                     Sign Out
                   </Button>
@@ -228,7 +234,7 @@ export function Navbar() {
               ) : (
                 <Button 
                   className="w-full mt-2 bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90"
-                  onClick={signIn}
+                  onClick={handleSignIn}
                 >
                   Sign In
                 </Button>
