@@ -8,12 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
 import { Loader, HelpCircle, Sparkles } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const Auth = () => {
-  const { user } = useAuth();
+  const { user, signIn, signUp } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -32,7 +31,14 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
-  const handleSignIn = async () => {
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     if (!email || !password) {
       toast({
         title: "Missing fields",
@@ -42,35 +48,42 @@ const Auth = () => {
       return;
     }
 
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
-    } catch (error: any) {
-      console.error("Auth error:", error);
+    if (!validateEmail(email)) {
       toast({
-        title: "Authentication failed",
-        description: error.message || "There was an error during authentication",
+        title: "Invalid email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
-    } finally {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await signIn(email, password);
+      // No need for navigation here - the useEffect will handle redirect on successful auth
+    } catch (error) {
+      console.error("Auth error:", error);
       setLoading(false);
     }
   };
 
-  const handleSignUp = async () => {
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     // Validate fields
     if (!email || !password || !firstName || !lastName || !confirmPassword) {
       toast({
         title: "Missing fields",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
         variant: "destructive",
       });
       return;
@@ -87,38 +100,17 @@ const Auth = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: firstName,
-            last_name: lastName,
-            display_name: `${firstName} ${lastName}`,
-            referral_code: referralCode, // Store referral code in user metadata
-          },
-        },
-      });
+      const userData = {
+        first_name: firstName,
+        last_name: lastName,
+        display_name: `${firstName} ${lastName}`,
+        referral_code: referralCode,
+      };
       
-      if (error) throw error;
-      
-      toast({
-        title: "Account created",
-        description: referralCode 
-          ? "Your account has been created successfully with referral code! You'll receive your signup bonus soon."
-          : "Your account has been created successfully!",
-      });
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
-    } catch (error: any) {
+      await signUp(email, password, userData);
+      // No need for navigation here - the useEffect will handle redirect on successful auth
+    } catch (error) {
       console.error("Signup error:", error);
-      toast({
-        title: "Signup failed",
-        description: error.message || "There was an error during signup",
-        variant: "destructive",
-      });
-    } finally {
       setLoading(false);
     }
   };
@@ -166,7 +158,7 @@ const Auth = () => {
               <CardDescription>sign in to access your dashboard and manage your crypto assets.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-6">
-              <div className="space-y-4">
+              <form onSubmit={handleSignIn} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input 
@@ -188,7 +180,7 @@ const Auth = () => {
                   />
                 </div>
                 <Button 
-                  onClick={handleSignIn} 
+                  type="submit"
                   disabled={loading}
                   className="w-full"
                 >
@@ -201,7 +193,7 @@ const Auth = () => {
                     "Sign In"
                   )}
                 </Button>
-              </div>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>
@@ -213,97 +205,99 @@ const Auth = () => {
               <CardDescription>create an account to start using our services.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First Name</Label>
+                    <Input
+                      id="firstName"
+                      placeholder="Enter your first name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <Input
+                      id="lastName"
+                      placeholder="Enter your last name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                    />
+                  </div>
+                </div>
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="signupEmail">Email</Label>
                   <Input
-                    id="firstName"
-                    placeholder="Enter your first name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
+                    id="signupEmail"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="signupPassword">Password</Label>
                   <Input
-                    id="lastName"
-                    placeholder="Enter your last name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
+                    id="signupPassword"
+                    type="password"
+                    placeholder="Create a password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signupEmail">Email</Label>
-                <Input
-                  id="signupEmail"
-                  type="email"
-                  placeholder="Enter your email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="signupPassword">Password</Label>
-                <Input
-                  id="signupPassword"
-                  type="password"
-                  placeholder="Create a password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  placeholder="Confirm your password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="referralCode" className="flex items-center">
-                    Referral Code <Sparkles className="ml-2 h-4 w-4 text-yellow-500" />
-                  </Label>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle size={16} className="text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Enter a referral code to receive signup bonus</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
                 </div>
-                <Input
-                  id="referralCode"
-                  placeholder="Enter referral code"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground mt-1 flex items-center">
-                  <Sparkles className="mr-1 h-3 w-3 text-yellow-500" />
-                  Enter a valid referral code to receive your signup bonus!
-                </p>
-              </div>
-              <Button
-                onClick={handleSignUp}
-                disabled={loading}
-                className="w-full mt-4"
-              >
-                {loading ? (
-                  <>
-                    <Loader className="mr-2 h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
-                ) : (
-                  "Create Account"
-                )}
-              </Button>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="referralCode" className="flex items-center">
+                      Referral Code <Sparkles className="ml-2 h-4 w-4 text-yellow-500" />
+                    </Label>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <HelpCircle size={16} className="text-gray-400 cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Enter a referral code to receive signup bonus</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    id="referralCode"
+                    placeholder="Enter referral code"
+                    value={referralCode}
+                    onChange={(e) => setReferralCode(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                    <Sparkles className="mr-1 h-3 w-3 text-yellow-500" />
+                    Enter a valid referral code to receive your signup bonus!
+                  </p>
+                </div>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full mt-4"
+                >
+                  {loading ? (
+                    <>
+                      <Loader className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create Account"
+                  )}
+                </Button>
+              </form>
             </CardContent>
           </Card>
         </TabsContent>

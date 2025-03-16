@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,8 +10,9 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: () => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signUp: (email: string, password: string, userData?: Record<string, any>) => Promise<void>;
   connectWallet: (phrase: string) => Promise<void>;
 }
 
@@ -21,6 +23,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   signIn: async () => {},
   signOut: async () => {},
+  signUp: async () => {},
   connectWallet: async () => {},
 });
 
@@ -32,69 +35,89 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   useEffect(() => {
-    // Initialize session from supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    if (authInitialized) return;
+    
+    // Initialize session from supabase once
+    const initializeAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        
+        // Set up auth state change listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (_event, session) => {
+            setSession(session);
+            setUser(session?.user ?? null);
+          }
+        );
+        
+        return () => subscription.unsubscribe();
+      } catch (error) {
+        console.error("Auth initialization error:", error);
+      } finally {
         setLoading(false);
+        setAuthInitialized(true);
       }
-    );
+    };
+    
+    initializeAuth();
+  }, [authInitialized]);
 
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const signIn = async () => {
+  const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
       
-      // For the demo app, we're using a direct email/password sign in
-      // We've removed the Google OAuth attempt that was causing the error
-      
-      // Use email/password auth with demo account
+      // Use the provided credentials
       const { error } = await supabase.auth.signInWithPassword({
-        email: 'demo@nexcrypto.app',
-        password: 'Demo123!',
+        email,
+        password,
       });
       
-      if (error) {
-        // If demo account login failed, try to create it
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: 'demo@nexcrypto.app',
-          password: 'Demo123!',
-          options: {
-            data: {
-              full_name: 'Demo User',
-            },
-          },
-        });
-        
-        if (signUpError) throw signUpError;
-        
-        toast({
-          title: "Demo account created",
-          description: "You are now signed in as a demo user.",
-        });
-      } else {
-        toast({
-          title: "Signed in",
-          description: "You have been signed in as a demo user.",
-        });
-      }
+      if (error) throw error;
+      
+      toast({
+        title: "Signed in",
+        description: "You have been signed in successfully.",
+      });
     } catch (error) {
       console.error("Sign in error:", error);
       toast({
         title: "Sign in failed",
         description: "There was an error signing in. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const signUp = async (email: string, password: string, userData?: Record<string, any>) => {
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: userData,
+        },
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Account created",
+        description: "Your account has been created successfully.",
+      });
+    } catch (error) {
+      console.error("Sign up error:", error);
+      toast({
+        title: "Sign up failed",
+        description: error instanceof Error ? error.message : "There was an error during sign up.",
         variant: "destructive",
       });
     } finally {
@@ -196,7 +219,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signOut, connectWallet }}>
+    <AuthContext.Provider value={{ user, session, loading, signIn, signOut, signUp, connectWallet }}>
       {children}
     </AuthContext.Provider>
   );
