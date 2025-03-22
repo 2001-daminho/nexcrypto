@@ -63,6 +63,7 @@ const Auth = () => {
       // No need for navigation here - the useEffect will handle redirect on successful auth
     } catch (error) {
       console.error("Auth error:", error);
+    } finally {
       setLoading(false);
     }
   };
@@ -111,6 +112,7 @@ const Auth = () => {
       // No need for navigation here - the useEffect will handle redirect on successful auth
     } catch (error) {
       console.error("Signup error:", error);
+    } finally {
       setLoading(false);
     }
   };

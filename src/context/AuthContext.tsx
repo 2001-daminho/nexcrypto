@@ -43,15 +43,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Initialize session from supabase once
     const initializeAuth = async () => {
       try {
+        // First get the current session
         const { data } = await supabase.auth.getSession();
         setSession(data.session);
         setUser(data.session?.user ?? null);
         
         // Set up auth state change listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (_event, session) => {
-            setSession(session);
-            setUser(session?.user ?? null);
+          (_event, newSession) => {
+            console.log("Auth state changed:", _event, newSession?.user?.email);
+            setSession(newSession);
+            setUser(newSession?.user ?? null);
           }
         );
         
@@ -71,14 +73,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
+      console.log("Signing in with:", email);
       // Use the provided credentials
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error, data } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Sign in error:", error.message);
+        throw error;
+      }
       
+      console.log("Sign in successful:", data.user?.email);
       toast({
         title: "Signed in",
         description: "You have been signed in successfully.",
@@ -87,9 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error("Sign in error:", error);
       toast({
         title: "Sign in failed",
-        description: "There was an error signing in. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error signing in. Please try again.",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -99,7 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true);
       
-      const { error } = await supabase.auth.signUp({
+      console.log("Signing up with:", email, userData);
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -107,12 +116,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Sign up error:", error.message);
+        throw error;
+      }
+      
+      console.log("Sign up response:", data);
       
       toast({
         title: "Account created",
         description: "Your account has been created successfully.",
       });
+      
+      // If email confirmation is disabled, the user will be logged in automatically
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.user);
+      } else {
+        toast({
+          title: "Email verification required",
+          description: "Please check your email to verify your account.",
+        });
+      }
     } catch (error) {
       console.error("Sign up error:", error);
       toast({
@@ -120,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: error instanceof Error ? error.message : "There was an error during sign up.",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -127,8 +153,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = async () => {
     try {
+      console.log("Signing out...");
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error("Sign out error:", error.message);
+        throw error;
+      }
       
       toast({
         title: "Signed out",
