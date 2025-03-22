@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, Mail, Calendar } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -20,7 +20,8 @@ export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { user, signIn, signOut } = useAuth();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   // Track scroll for navbar background change
   useEffect(() => {
@@ -61,8 +62,8 @@ export function Navbar() {
 
   // Handler function for sign in button
   const handleSignIn = () => {
-    // Navigate to auth page instead of directly calling signIn
-    window.location.href = "/auth";
+    // Navigate to auth page
+    navigate("/auth");
   };
 
   return (
@@ -232,11 +233,12 @@ export function Navbar() {
                   </Button>
                 </div>
               ) : (
-                <Link to="/dashboard"><Button 
+                <Button 
                   className="w-full mt-2 bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90"
+                  onClick={handleSignIn}
                 >
                   Sign In
-                </Button></Link>
+                </Button>
               )}
             </div>
           </nav>

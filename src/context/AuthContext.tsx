@@ -113,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: userData,
+          // Disable email confirmation by setting emailRedirectTo to null
+          emailRedirectTo: null,
         },
       });
       
@@ -123,19 +125,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       console.log("Sign up response:", data);
       
-      toast({
-        title: "Account created",
-        description: "Your account has been created successfully.",
-      });
-      
-      // If email confirmation is disabled, the user will be logged in automatically
+      // The user should be automatically logged in now
       if (data.session) {
         setSession(data.session);
         setUser(data.user);
-      } else {
+        
         toast({
-          title: "Email verification required",
-          description: "Please check your email to verify your account.",
+          title: "Account created",
+          description: "Your account has been created and you've been signed in successfully.",
+        });
+      } else {
+        // In case something goes wrong and session is not returned
+        toast({
+          title: "Account created",
+          description: "Your account has been created but we couldn't log you in automatically. Please sign in.",
+          variant: "destructive",
         });
       }
     } catch (error) {

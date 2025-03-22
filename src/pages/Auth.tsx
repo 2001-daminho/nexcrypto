@@ -109,7 +109,8 @@ const Auth = () => {
       };
       
       await signUp(email, password, userData);
-      // No need for navigation here - the useEffect will handle redirect on successful auth
+      // After successful signup, user will be automatically logged in
+      // and the useEffect will handle redirection to the dashboard
     } catch (error) {
       console.error("Signup error:", error);
     } finally {
