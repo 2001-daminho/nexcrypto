@@ -232,12 +232,11 @@ export function Navbar() {
                   </Button>
                 </div>
               ) : (
-                <Button 
+                <Link to="/dashboard"><Button 
                   className="w-full mt-2 bg-gradient-to-r from-crypto-light-blue to-crypto-bright-teal hover:opacity-90"
-                  onClick={handleSignIn}
                 >
                   Sign In
-                </Button>
+                </Button></Link>
               )}
             </div>
           </nav>
