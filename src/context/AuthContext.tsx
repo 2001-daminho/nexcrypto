@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
         options: {
           data: userData,
-          // Disable email confirmation by setting emailRedirectTo to null
+          // This is the key part - skip email verification completely
           emailRedirectTo: null,
         },
       });
