@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Navbar } from "@/components/Navbar";
 import { AnimatedGradient } from "@/components/AnimatedGradient";
+import { Analytics } from "@vercel/analytics/react"
 
 // Pages
 import Index from "@/pages/Index";
@@ -40,6 +41,7 @@ const App = () => (
               </Routes>
             </main>
           </BrowserRouter>
+          <Analytics />
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>
