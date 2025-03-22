@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +10,7 @@ import { Pencil, Trash, X, Check, Search, LogOut, PlusCircle } from 'lucide-reac
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/context/AuthContext';
 
 type User = {
   id: string;
@@ -30,6 +32,7 @@ type Asset = {
 const Administrator = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userAssets, setUserAssets] = useState<Asset[]>([]);
@@ -42,37 +45,43 @@ const Administrator = () => {
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetAmount, setNewAssetAmount] = useState('');
 
-  // Fetch users - removed authentication requirement
+  // Check if user is logged in and redirect if not
+  useEffect(() => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to access the administrator page",
+        variant: "destructive"
+      });
+      navigate('/auth');
+    }
+  }, [user, navigate, toast]);
+
+  // Fetch users
   useEffect(() => {
     const fetchUsers = async () => {
+      if (!user) return;
+      
       try {
-        // First try to fetch from admin_users table
-        let { data, error } = await supabase
-          .from('admin_users')
-          .select('id, email, created_at')
+        setIsLoading(true);
+        
+        // Fetch all profiles
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, display_name, created_at')
           .order('created_at', { ascending: false });
           
-        if (error || !data || data.length === 0) {
-          // If no admin users or error, fetch from auth.users via profiles
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, display_name')
-            .order('created_at', { ascending: false });
-            
-          if (profilesError) throw profilesError;
-          
-          if (profiles) {
-            // Format profiles to match User type
-            data = profiles.map(profile => ({
-              id: profile.id,
-              email: profile.display_name || 'User',
-              created_at: new Date().toISOString()
-            }));
-          }
-        }
+        if (error) throw error;
         
         if (data) {
-          setUsers(data as User[]);
+          // Format profiles to match User type
+          const formattedUsers = data.map(profile => ({
+            id: profile.id,
+            email: profile.display_name || 'User',
+            created_at: profile.created_at || new Date().toISOString()
+          }));
+          
+          setUsers(formattedUsers);
         }
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -86,8 +95,10 @@ const Administrator = () => {
       }
     };
     
-    fetchUsers();
-  }, []);
+    if (user) {
+      fetchUsers();
+    }
+  }, [user, toast]);
 
   // Fetch user assets when a user is selected
   useEffect(() => {
@@ -270,7 +281,7 @@ const Administrator = () => {
 
   const handleDeleteUser = async (userId: string) => {
     try {
-      // This will now just show a message since we can't delete users without admin rights
+      // This will just show a message since we can't delete users without admin rights
       toast({
         title: "Information",
         description: "User deletion requires admin privileges and is disabled in this demo",
@@ -288,6 +299,17 @@ const Administrator = () => {
   const filteredUsers = users.filter(
     user => user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // If user is not logged in, show a message
+  if (!user) {
+    return (
+      <div className="container mx-auto py-16 px-4 text-center">
+        <h1 className="text-3xl font-bold mb-4">Access Denied</h1>
+        <p className="mb-4">Please sign in to access the administrator page.</p>
+        <Button onClick={() => navigate('/auth')}>Go to Login</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-16 px-4">
