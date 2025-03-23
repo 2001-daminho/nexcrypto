@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,7 +52,6 @@ const Administrator = () => {
   const [newAssetName, setNewAssetName] = useState('');
   const [newAssetAmount, setNewAssetAmount] = useState('');
 
-  // Check if user is logged in and redirect if not
   useEffect(() => {
     if (!user) {
       toast({
@@ -65,7 +63,6 @@ const Administrator = () => {
       return;
     }
 
-    // Basic check for admin rights - email contains "admin"
     const isAdmin = user.email?.toLowerCase().includes('admin');
     if (!isAdmin) {
       toast({
@@ -77,7 +74,6 @@ const Administrator = () => {
     }
   }, [user, navigate, toast]);
 
-  // Fetch all users from the system
   useEffect(() => {
     const fetchUsers = async () => {
       if (!user) return;
@@ -85,7 +81,6 @@ const Administrator = () => {
       try {
         setIsLoading(true);
         
-        // Fetch all users through admin_users view
         const { data, error } = await supabase
           .from('admin_users')
           .select('*')
@@ -113,7 +108,6 @@ const Administrator = () => {
     }
   }, [user, toast]);
 
-  // Fetch user assets when a user is selected
   useEffect(() => {
     if (selectedUser) {
       fetchUserAssets(selectedUser.id);
@@ -130,13 +124,18 @@ const Administrator = () => {
         .select('*')
         .eq('user_id', userId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching user assets:', error);
+        throw error;
+      }
       
       if (data) {
         setUserAssets(data.map(asset => ({
           ...asset,
           amount: Number(asset.amount)
         })));
+      } else {
+        setUserAssets([]);
       }
     } catch (error) {
       console.error('Error fetching user assets:', error);
@@ -145,6 +144,7 @@ const Administrator = () => {
         description: "Failed to load user assets",
         variant: "destructive"
       });
+      setUserAssets([]);
     } finally {
       setIsLoading(false);
     }
@@ -172,14 +172,11 @@ const Administrator = () => {
         return;
       }
 
-      // Find the asset being edited
       const asset = userAssets.find(a => a.id === assetId);
       if (!asset) return;
 
-      // Check if the amount is being increased (credited)
       const isIncrease = amount > asset.amount;
       
-      // Update the asset in the database
       const { error } = await supabase
         .from('crypto_assets')
         .update({ amount })
@@ -187,7 +184,6 @@ const Administrator = () => {
         
       if (error) throw error;
       
-      // If this is an account credit (increased amount), create a notification
       if (isIncrease) {
         const amountAdded = amount - asset.amount;
         const { error: notificationError } = await supabase
@@ -199,8 +195,7 @@ const Administrator = () => {
             type: 'receive',
             status: 'completed',
             recipient_address: 'ADMIN_CREDIT',
-            transaction_hash: `admin_credit_${Date.now()}`,
-            price_usd: 0 // We don't have the price here, but it's not critical
+            transaction_hash: `admin_credit_${Date.now()}`
           });
           
         if (notificationError) {
@@ -213,12 +208,10 @@ const Administrator = () => {
         description: `Asset balance ${isIncrease ? 'credited' : 'updated'} successfully`
       });
       
-      // Update local state
       setUserAssets(userAssets.map(asset => 
         asset.id === assetId ? { ...asset, amount } : asset
       ));
       
-      // Reset edit state
       setEditAssetId(null);
       setEditAmount('');
       
@@ -255,7 +248,6 @@ const Administrator = () => {
         return;
       }
       
-      // Create a new asset for the user
       const { error, data } = await supabase
         .from('crypto_assets')
         .insert({
@@ -275,7 +267,6 @@ const Administrator = () => {
         description: "Asset added successfully"
       });
       
-      // Create a transaction record for the asset addition
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
@@ -292,10 +283,8 @@ const Administrator = () => {
         console.error('Error creating transaction record:', transactionError);
       }
       
-      // Update local state
       setUserAssets([...userAssets, { ...data, amount: Number(data.amount) }]);
       
-      // Reset form
       setNewAssetSymbol('');
       setNewAssetName('');
       setNewAssetAmount('');
@@ -328,7 +317,6 @@ const Administrator = () => {
         description: "Asset deleted successfully"
       });
       
-      // Update local state
       setUserAssets(userAssets.filter(a => a.id !== assetId));
     } catch (error) {
       console.error('Error deleting asset:', error);
@@ -344,7 +332,6 @@ const Administrator = () => {
     user => user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // If user is not logged in, show a message
   if (!user) {
     return (
       <div className="container mx-auto py-16 px-4 text-center">
@@ -365,7 +352,6 @@ const Administrator = () => {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Users List */}
         <div className="lg:col-span-1">
           <Card>
             <CardHeader>
@@ -440,7 +426,6 @@ const Administrator = () => {
           </Card>
         </div>
         
-        {/* User Details */}
         <div className="lg:col-span-2">
           {selectedUser ? (
             <Tabs defaultValue="assets">
@@ -581,7 +566,6 @@ const Administrator = () => {
         </div>
       </div>
       
-      {/* Add Asset Dialog */}
       <Dialog open={showAddAssetDialog} onOpenChange={setShowAddAssetDialog}>
         <DialogContent>
           <DialogHeader>
