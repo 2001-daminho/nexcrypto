@@ -117,6 +117,8 @@ const Administrator = () => {
   useEffect(() => {
     if (selectedUser) {
       fetchUserAssets(selectedUser.id);
+    } else {
+      setUserAssets([]);
     }
   }, [selectedUser]);
 
