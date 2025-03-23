@@ -11,6 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogT
 import { useNavigate } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/context/AuthContext';
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow 
+} from '@/components/ui/table';
 
 type User = {
   id: string;
@@ -54,10 +62,22 @@ const Administrator = () => {
         variant: "destructive"
       });
       navigate('/auth');
+      return;
+    }
+
+    // Basic check for admin rights - email contains "admin"
+    const isAdmin = user.email?.toLowerCase().includes('admin');
+    if (!isAdmin) {
+      toast({
+        title: "Access denied",
+        description: "You don't have administrator privileges",
+        variant: "destructive"
+      });
+      navigate('/dashboard');
     }
   }, [user, navigate, toast]);
 
-  // Fetch users
+  // Fetch all users from the system
   useEffect(() => {
     const fetchUsers = async () => {
       if (!user) return;
@@ -65,7 +85,7 @@ const Administrator = () => {
       try {
         setIsLoading(true);
         
-        // Fetch all profiles
+        // Fetch all users through profiles table
         const { data, error } = await supabase
           .from('profiles')
           .select('id, display_name, created_at')
@@ -95,7 +115,7 @@ const Administrator = () => {
       }
     };
     
-    if (user) {
+    if (user && user.email?.toLowerCase().includes('admin')) {
       fetchUsers();
     }
   }, [user, toast]);
@@ -260,6 +280,23 @@ const Administrator = () => {
         description: "Asset added successfully"
       });
       
+      // Create a transaction record for the asset addition
+      const { error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: selectedUser.id,
+          symbol: newAssetSymbol.toLowerCase(),
+          amount,
+          type: 'receive',
+          status: 'completed',
+          recipient_address: 'ADMIN_CREDIT',
+          transaction_hash: `admin_credit_${Date.now()}`
+        });
+        
+      if (transactionError) {
+        console.error('Error creating transaction record:', transactionError);
+      }
+      
       // Update local state
       setUserAssets([...userAssets, { ...data, amount: Number(data.amount) }]);
       
@@ -279,18 +316,30 @@ const Administrator = () => {
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
+  const handleDeleteAsset = async (assetId: string) => {
     try {
-      // This will just show a message since we can't delete users without admin rights
+      const asset = userAssets.find(a => a.id === assetId);
+      if (!asset) return;
+      
+      const { error } = await supabase
+        .from('crypto_assets')
+        .delete()
+        .eq('id', assetId);
+        
+      if (error) throw error;
+      
       toast({
-        title: "Information",
-        description: "User deletion requires admin privileges and is disabled in this demo",
+        title: "Success",
+        description: "Asset deleted successfully"
       });
+      
+      // Update local state
+      setUserAssets(userAssets.filter(a => a.id !== assetId));
     } catch (error) {
-      console.error('Error deleting user:', error);
+      console.error('Error deleting asset:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user. This operation requires admin privileges.",
+        description: "Failed to delete asset",
         variant: "destructive"
       });
     }
@@ -339,7 +388,7 @@ const Administrator = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
+              {isLoading && !selectedUser ? (
                 <div className="text-center py-4">Loading users...</div>
               ) : filteredUsers.length > 0 ? (
                 <div className="space-y-2 max-h-[500px] overflow-y-auto pr-2">
@@ -369,10 +418,15 @@ const Administrator = () => {
                           </DialogHeader>
                           <p>Are you sure you want to delete this user? This action cannot be undone.</p>
                           <DialogFooter>
-                            <Button variant="outline">Cancel</Button>
+                            <Button variant="outline" onClick={() => {}}>Cancel</Button>
                             <Button 
                               variant="destructive"
-                              onClick={() => handleDeleteUser(user.id)}
+                              onClick={() => {
+                                toast({
+                                  title: "Information",
+                                  description: "User deletion requires admin privileges and is disabled in this demo"
+                                });
+                              }}
                             >
                               Delete
                             </Button>
@@ -418,62 +472,101 @@ const Administrator = () => {
                     {isLoading ? (
                       <div className="text-center py-4">Loading assets...</div>
                     ) : userAssets.length > 0 ? (
-                      <div className="space-y-4">
-                        {userAssets.map(asset => (
-                          <div key={asset.id} className="border rounded-md p-4">
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-3">
-                                {asset.image_url && (
-                                  <img 
-                                    src={asset.image_url} 
-                                    alt={asset.name} 
-                                    className="w-8 h-8 rounded-full"
-                                  />
-                                )}
-                                <div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Asset</TableHead>
+                            <TableHead>Symbol</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {userAssets.map(asset => (
+                            <TableRow key={asset.id}>
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  {asset.image_url && (
+                                    <img 
+                                      src={asset.image_url} 
+                                      alt={asset.name} 
+                                      className="w-8 h-8 rounded-full"
+                                    />
+                                  )}
                                   <div className="font-medium">{asset.name}</div>
-                                  <div className="text-xs text-muted-foreground">{asset.symbol}</div>
                                 </div>
-                              </div>
-                              
-                              {editAssetId === asset.id ? (
-                                <div className="flex items-center gap-2">
+                              </TableCell>
+                              <TableCell>{asset.symbol.toUpperCase()}</TableCell>
+                              <TableCell>
+                                {editAssetId === asset.id ? (
                                   <Input
                                     value={editAmount}
                                     onChange={(e) => setEditAmount(e.target.value)}
                                     className="w-32"
                                   />
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => handleSaveAsset(asset.id)}
-                                  >
-                                    <Check className="h-4 w-4 text-green-500" />
-                                  </Button>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={handleCancelEdit}
-                                  >
-                                    <X className="h-4 w-4 text-red-500" />
-                                  </Button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-2">
-                                  <div className="font-medium">{asset.amount} {asset.symbol}</div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon"
-                                    onClick={() => handleEditAsset(asset)}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                                ) : (
+                                  <span>{asset.amount}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {editAssetId === asset.id ? (
+                                  <div className="flex justify-end gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => handleSaveAsset(asset.id)}
+                                    >
+                                      <Check className="h-4 w-4 text-green-500" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={handleCancelEdit}
+                                    >
+                                      <X className="h-4 w-4 text-red-500" />
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="flex justify-end gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon"
+                                      onClick={() => handleEditAsset(asset)}
+                                    >
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Dialog>
+                                      <DialogTrigger asChild>
+                                        <Button 
+                                          variant="ghost" 
+                                          size="icon"
+                                        >
+                                          <Trash className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                      </DialogTrigger>
+                                      <DialogContent>
+                                        <DialogHeader>
+                                          <DialogTitle>Confirm Deletion</DialogTitle>
+                                        </DialogHeader>
+                                        <p>Are you sure you want to delete this asset? This action cannot be undone.</p>
+                                        <DialogFooter>
+                                          <Button variant="outline">Cancel</Button>
+                                          <Button 
+                                            variant="destructive"
+                                            onClick={() => handleDeleteAsset(asset.id)}
+                                          >
+                                            Delete
+                                          </Button>
+                                        </DialogFooter>
+                                      </DialogContent>
+                                    </Dialog>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                     ) : (
                       <div className="text-center py-4 text-muted-foreground">
                         No assets found for this user
