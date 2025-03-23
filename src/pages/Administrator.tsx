@@ -85,23 +85,16 @@ const Administrator = () => {
       try {
         setIsLoading(true);
         
-        // Fetch all users through profiles table
+        // Fetch all users through admin_users view
         const { data, error } = await supabase
-          .from('profiles')
-          .select('id, display_name, created_at')
+          .from('admin_users')
+          .select('*')
           .order('created_at', { ascending: false });
           
         if (error) throw error;
         
         if (data) {
-          // Format profiles to match User type
-          const formattedUsers = data.map(profile => ({
-            id: profile.id,
-            email: profile.display_name || 'User',
-            created_at: profile.created_at || new Date().toISOString()
-          }));
-          
-          setUsers(formattedUsers);
+          setUsers(data);
         }
       } catch (error) {
         console.error('Error fetching users:', error);
@@ -346,7 +339,7 @@ const Administrator = () => {
   };
 
   const filteredUsers = users.filter(
-    user => user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    user => user.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // If user is not logged in, show a message
